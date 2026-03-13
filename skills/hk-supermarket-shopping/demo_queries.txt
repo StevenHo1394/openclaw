@@ -1,0 +1,59 @@
+# Example Queries for HK Supermarket Shopping Skill v1.0.0
+
+## English Queries
+
+Coke Zero price
+milk price
+cheapest eggs
+frozen shrimp
+olive oil
+bread
+soy milk
+cheese
+cooking oil
+instant noodles
+
+## Chinese Queries (Traditional)
+
+可樂零系
+牛奶
+雞蛋
+凍蝦
+橄欖油
+餐包
+豆奶
+芝士
+食油
+快餐麵
+
+## Chinese Queries (Simplified)
+
+可乐零度
+牛奶
+鸡蛋
+冻虾
+橄榄油
+面包
+豆奶
+奶酪
+食用油
+方便面
+
+## Expected Output Types
+
+For "Coke Zero":
+  → Shows cheapest supermarkets, overall winner, $100 quantity
+
+For "milk":
+  → Lists all milk products, highlights cheapest, gives $100 calculation
+
+For "cheese":
+  → Shows cheese items, picks cheapest, may not be actual cheese (e.g., nacho cheese)
+
+## Notes
+
+- The skill searches Product Name, Brand, and Categories.
+- If nothing matches, it says "Sorry, I couldn't find any products matching..."
+- Prices are HK dollars ($).
+- $100 quantity assumes you buy the cheapest item repeatedly.
+- Supermarket codes: WELLCOME, PARKNSHOP, AEON, JASONS, etc.
