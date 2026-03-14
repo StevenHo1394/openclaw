@@ -1,4 +1,4 @@
-# HK Supermarket Shopping Skill (v1.2.0)
+# HK Supermarket Shopping Skill (v1.2.1)
 
 Simple, fast price lookup for Hong Kong supermarkets.
 
