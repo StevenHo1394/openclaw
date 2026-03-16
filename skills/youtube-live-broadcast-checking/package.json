@@ -1,0 +1,24 @@
+{
+  "name": "youtube-live-broadcast-notifications",
+  "version": "2.0.0",
+  "description": "OpenClaw skill to monitor YouTube channels and detect live and upcoming broadcasts",
+  "main": "skill.js",
+  "scripts": {
+    "test": "node test/test-upcoming.js"
+  },
+  "keywords": [
+    "openclaw",
+    "youtube",
+    "live",
+    "notification",
+    "upcoming"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "googleapis": "^126.0.0"
+  },
+  "devDependencies": {
+    "nock": "^13.5.6"
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "id": "youtube-live-broadcast-checking",
+  "name": "YouTube Live Broadcast Checking",
+  "description": "Checks next live broadcast times for YouTube channels to avoid missing notifications.",
+  "tools": [
+    {
+      "name": "add_channel",
+      "description": "Adds a channel to the watchlist and fetches its display name",
+      "input": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "description": "YouTube channel ID to add to watchlist (e.g., 'UC_x5XG1OV2P6uZZ5FSM9Ttw')"
+          }
+        },
+        "required": ["channel_id"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "remove_channel",
+      "description": "Removes a channel from the watchlist",
+      "input": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "description": "YouTube channel ID to remove from watchlist"
+          }
+        },
+        "required": ["channel_id"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "removed": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "name": "list_channels",
+      "description": "Returns the list of watched channels with names and timestamps",
+      "input": {
+        "type": "object",
+        "properties": {}
+      },
+      "output": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "added_at": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    },
+    {
+      "name": "get_next_broadcast",
+      "description": "Fetches the earliest upcoming broadcast for a specific channel",
+      "input": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "description": "YouTube channel ID to fetch upcoming broadcast for"
+          }
+        },
+        "required": ["channel_id"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "channel_id": { "type": "string" },
+          "channel_name": { "type": "string" },
+          "video_id": { "type": "string" },
+          "title": { "type": "string" },
+          "scheduled_start_time": { "type": "string", "format": "date-time" },
+          "thumbnail_url": { "type": "string" },
+          "video_url": { "type": "string" }
+        }
+      }
+    },
+    {
+      "name": "check_upcoming_broadcasts",
+      "description": "Fetches upcoming broadcasts for specified channels or all watchlist; results sorted by start time",
+      "input": {
+        "type": "object",
+        "properties": {
+          "channel_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional array of channel IDs to check. If omitted, checks all watchlist channels."
+          }
+        },
+        "required": []
+      },
+      "output": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "channel_id": { "type": "string" },
+            "channel_name": { "type": "string" },
+            "video_id": { "type": "string" },
+            "title": { "type": "string" },
+            "scheduled_start_time": { "type": "string", "format": "date-time" },
+            "thumbnail_url": { "type": "string" },
+            "video_url": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "name": "check_live_status",
+      "description": "[Deprecated] Use check_upcoming_broadcasts instead. Queries for currently live broadcasts (OAuth scoped, not API key compatible).",
+      "input": {
+        "type": "object",
+        "properties": {}
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" }
+        }
+      }
+    }
+  ],
+  "runtime": "node",
+  "main": "skill.js",
+  "installCommand": "npm install"
+}
