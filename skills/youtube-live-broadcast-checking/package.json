@@ -1,6 +1,6 @@
 {
   "name": "youtube-live-broadcast-checking",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Checks next live broadcast times for YouTube channels",
   "main": "skill.js",
   "scripts": {
@@ -10,8 +10,7 @@
     "openclaw",
     "youtube",
     "live",
-    "notification",
-    "upcoming"
+    "broadcast"
   ],
   "author": "",
   "license": "ISC",

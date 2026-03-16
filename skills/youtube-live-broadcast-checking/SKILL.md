@@ -25,10 +25,10 @@ This skill requires a **Google API key** with **YouTube Data API v3** enabled.
 
 ### Setting the API Key
 
-Set the `GOOGLE_API_KEY` environment variable:
+Set the `YOUTUBE_API_KEY` environment variable:
 
 ```bash
-export GOOGLE_API_KEY="your_api_key_here"
+export YOUTUBE_API_KEY="your_api_key_here"
 ```
 
 To make it permanent, add it to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) or use a `.env` file.
@@ -84,28 +84,40 @@ Fetches the earliest upcoming broadcast for a specified channel.
 Fetches upcoming broadcasts for multiple channels (or all watchlist if none specified). Results sorted by start time.
 
 **Parameters:**
-- `channel_ids` (array of strings, optional): Channel IDs/handles. If omitted, uses watchlist.
+- `channel_ids` (array of strings, optional): Channel IDs or handles. If omitted, uses watchlist.
 
 **Returns:** Array of broadcast objects (one per channel with upcoming streams), sorted ascending by `scheduled_start_time`. Omits channels with no upcoming broadcasts.
 
 ## Installation
 
 1. Extract the skill to `workspace/skills/youtube-live-broadcast-checking/`
-2. **Important:** The `node_modules/` directory may contain platform-specific binaries. If exporting to another system, either:
-   - Exclude `node_modules/` from the archive and run `npm install` on the target system; OR
-   - Delete `node_modules/` after extraction and run `npm install`
-3. Run `npm install` in that directory (if `node_modules` is missing)
+2. **Important:** If you obtained a package that includes `node_modules/`, you can use it directly. If building from source, run:
+   ```bash
+   npm install --no-bin-links
+   ```
+   The `--no-bin-links` flag is required in Docker/overlayfs environments to avoid symlink errors (e.g., `uuid` package).
+3. Ensure `YOUTUBE_API_KEY` environment variable is set (see Prerequisites).
 4. Add `"youtube-live-broadcast-checking"` to your agent's skills list in `openclaw.json`
 5. Restart the OpenClaw gateway
+
+## Watchlist Storage
+
+The skill stores the channel watchlist in:
+```
+~/.openclaw/workspace/memory/youtube-channels.json
+```
+
+This location is independent of any specific agent workspace.
 
 ## Notes
 
 - Quota: Each check costs ~3-5 API units per channel (channels.list + search.list + videos.list)
 - Only public channels and publicly scheduled streams are supported
-- Channel IDs must be valid; handles (e.g., `@chan22`) are resolved via search
-- The watchlist is stored in `~/.openclaw/workspace/memory/youtube-channels.json`
+- Channel IDs must be valid; handles (e.g., `@SamiLiveHK`) are resolved via search (note: the actual display name "Sami Live HK" includes spaces, but the handle does not)
+- The skill requires the `YOUTUBE_API_KEY` environment variable (not `GOOGLE_API_KEY`)
 
 ## Version History
 
-- **1.1.0** - Renamed skill, added human-friendly identifier resolution, security review, fixed installation notes
-- **1.0.0** - Initial release with live broadcast detection (deprecated)
+- **1.2.0** - Fixed inconsistencies: unified env var to YOUTUBE_API_KEY, standardized watchlist path, added requiredEnvVars in plugin metadata, security review
+- **1.1.0** - Initial enhanced version with human-friendly identifier resolution and upcoming broadcast tools
+- **1.0.0** - Initial release (deprecated)

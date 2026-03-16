@@ -1,17 +1,17 @@
 {
   "id": "youtube-live-broadcast-checking",
   "name": "YouTube Live Broadcast Checking",
-  "description": "Checks next live broadcast times for YouTube channels to avoid missing notifications.",
+  "description": "Checks next live broadcast times for YouTube channels using YouTube Data API v3.",
   "tools": [
     {
       "name": "add_channel",
-      "description": "Adds a channel to the watchlist and fetches its display name",
+      "description": "Adds a channel to the watchlist; accepts channel ID, handle (@), or full URL",
       "input": {
         "type": "object",
         "properties": {
           "channel_id": {
             "type": "string",
-            "description": "YouTube channel ID to add to watchlist (e.g., 'UC_x5XG1OV2P6uZZ5FSM9Ttw')"
+            "description": "YouTube channel ID, handle (e.g., '@chan22'), or full channel URL"
           }
         },
         "required": ["channel_id"]
@@ -33,7 +33,7 @@
         "properties": {
           "channel_id": {
             "type": "string",
-            "description": "YouTube channel ID to remove from watchlist"
+            "description": "Channel ID or handle to remove"
           }
         },
         "required": ["channel_id"]
@@ -47,7 +47,7 @@
     },
     {
       "name": "list_channels",
-      "description": "Returns the list of watched channels with names and timestamps",
+      "description": "Lists all watched channels with names and timestamps",
       "input": {
         "type": "object",
         "properties": {}
@@ -66,13 +66,13 @@
     },
     {
       "name": "get_next_broadcast",
-      "description": "Fetches the earliest upcoming broadcast for a specific channel",
+      "description": "Fetches the earliest upcoming broadcast for a specified channel",
       "input": {
         "type": "object",
         "properties": {
           "channel_id": {
             "type": "string",
-            "description": "YouTube channel ID to fetch upcoming broadcast for"
+            "description": "Channel ID or handle to check"
           }
         },
         "required": ["channel_id"]
@@ -99,7 +99,7 @@
           "channel_ids": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Optional array of channel IDs to check. If omitted, checks all watchlist channels."
+            "description": "Optional array of channel IDs or handles. If omitted, checks all watchlist channels."
           }
         },
         "required": []
@@ -122,7 +122,7 @@
     },
     {
       "name": "check_live_status",
-      "description": "[Deprecated] Use check_upcoming_broadcasts instead. Queries for currently live broadcasts (OAuth scoped, not API key compatible).",
+      "description": "[Deprecated] Use check_upcoming_broadcasts instead.",
       "input": {
         "type": "object",
         "properties": {}
@@ -137,5 +137,6 @@
   ],
   "runtime": "node",
   "main": "skill.js",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "requiredEnvVars": ["YOUTUBE_API_KEY"]
 }

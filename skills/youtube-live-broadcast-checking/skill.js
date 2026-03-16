@@ -2,7 +2,8 @@ const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
 
-const MEMORY_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.openclaw', 'workspace-for-jose', 'memory');
+// Use generic OpenClaw memory directory (workspace-agnostic)
+const MEMORY_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.openclaw', 'workspace', 'memory');
 const WATCHLIST_FILE = path.join(MEMORY_DIR, 'youtube-channels.json');
 
 // Ensure memory directory exists
@@ -149,6 +150,71 @@ async function withResolvedChannel(params, callback) {
   return callback(params); // No channel identifier provided (watchlist case)
 }
 
+// Helper: get upcoming broadcasts for a single channel
+async function getUpcomingForChannel(channelId, youtube) {
+  try {
+    // Search for upcoming videos
+    const searchResponse = await youtube.search.list({
+      part: ['id'],
+      channelId: channelId,
+      type: 'video',
+      eventType: 'upcoming',
+      order: 'date',
+      maxResults: 5
+    });
+
+    if (!searchResponse.data.items || searchResponse.data.items.length === 0) {
+      return null;
+    }
+
+    const videoIds = searchResponse.data.items.map(item => item.id.videoId);
+
+    // Get video details including liveStreamingDetails
+    const videosResponse = await youtube.videos.list({
+      part: ['snippet', 'liveStreamingDetails'],
+      id: videoIds.join(',')
+    });
+
+    if (!videosResponse.data.items || videosResponse.data.items.length === 0) {
+      return null;
+    }
+
+    // Filter for videos with scheduledStartTime in the future
+    const now = new Date();
+    const upcomingVideos = [];
+
+    for (const video of videosResponse.data.items) {
+      const streamingDetails = video.liveStreamingDetails;
+      if (!streamingDetails || !streamingDetails.scheduledStartTime) {
+        continue;
+      }
+
+      const scheduledTime = new Date(streamingDetails.scheduledStartTime);
+      if (scheduledTime > now) {
+        upcomingVideos.push({
+          video_id: video.id,
+          title: video.snippet.title,
+          scheduled_start_time: streamingDetails.scheduledStartTime,
+          thumbnail_url: video.snippet.thumbnails?.high?.url || video.snippet.thumbnails?.default?.url || '',
+          video_url: `https://www.youtube.com/watch?v=${video.id}`
+        });
+      }
+    }
+
+    if (upcomingVideos.length === 0) {
+      return null;
+    }
+
+    // Sort by scheduled_start_time ascending
+    upcomingVideos.sort((a, b) => new Date(a.scheduled_start_time) - new Date(b.scheduled_start_time));
+
+    return upcomingVideos[0]; // Return the earliest
+  } catch (err) {
+    console.error(`Error fetching upcoming for channel ${channelId}:`, err.message);
+    throw err;
+  }
+}
+
 // Tool: add_channel
 async function addChannel(params) {
   return withResolvedChannel(params, async ({ channel_id }) => {
@@ -229,71 +295,6 @@ async function removeChannel(params) {
 async function listChannels() {
   const watchlist = loadWatchlist();
   return watchlist.channels;
-}
-
-// Helper: get upcoming broadcasts for a single channel
-async function getUpcomingForChannel(channelId, youtube) {
-  try {
-    // Search for upcoming videos
-    const searchResponse = await youtube.search.list({
-      part: ['id'],
-      channelId: channelId,
-      type: 'video',
-      eventType: 'upcoming',
-      order: 'date',
-      maxResults: 5
-    });
-
-    if (!searchResponse.data.items || searchResponse.data.items.length === 0) {
-      return null;
-    }
-
-    const videoIds = searchResponse.data.items.map(item => item.id.videoId);
-
-    // Get video details including liveStreamingDetails
-    const videosResponse = await youtube.videos.list({
-      part: ['snippet', 'liveStreamingDetails'],
-      id: videoIds.join(',')
-    });
-
-    if (!videosResponse.data.items || videosResponse.data.items.length === 0) {
-      return null;
-    }
-
-    // Filter for videos with scheduledStartTime in the future
-    const now = new Date();
-    const upcomingVideos = [];
-
-    for (const video of videosResponse.data.items) {
-      const streamingDetails = video.liveStreamingDetails;
-      if (!streamingDetails || !streamingDetails.scheduledStartTime) {
-        continue;
-      }
-
-      const scheduledTime = new Date(streamingDetails.scheduledStartTime);
-      if (scheduledTime > now) {
-        upcomingVideos.push({
-          video_id: video.id,
-          title: video.snippet.title,
-          scheduled_start_time: streamingDetails.scheduledStartTime,
-          thumbnail_url: video.snippet.thumbnails?.high?.url || video.snippet.thumbnails?.default?.url || '',
-          video_url: `https://www.youtube.com/watch?v=${video.id}`
-        });
-      }
-    }
-
-    if (upcomingVideos.length === 0) {
-      return null;
-    }
-
-    // Sort by scheduled_start_time ascending
-    upcomingVideos.sort((a, b) => new Date(a.scheduled_start_time) - new Date(b.scheduled_start_time));
-
-    return upcomingVideos[0]; // Return the earliest
-  } catch (err) {
-    console.error(`Error fetching upcoming for channel ${channelId}:`, err.message);
-    throw err;
-  }
 }
 
 // Tool: get_next_broadcast
@@ -418,7 +419,7 @@ module.exports = {
     list_channels: listChannels,
     get_next_broadcast: getNextBroadcast,
     check_upcoming_broadcasts: checkUpcomingBroadcasts,
-    // Preserve original tool for backward compatibility
+    // Preserve deprecation
     check_live_status: async () => {
       return { error: 'check_live_status is deprecated. Use check_upcoming_broadcasts instead.' };
     }
