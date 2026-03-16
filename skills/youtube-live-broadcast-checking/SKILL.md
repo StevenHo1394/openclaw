@@ -107,6 +107,5 @@ Fetches upcoming broadcasts for multiple channels (or all watchlist if none spec
 
 ## Version History
 
-- **2.1.0** - Renamed skill, enhanced documentation, security review
-- **2.0.0** - Added human-friendly identifier resolution, upcoming broadcast tools
+- **1.1.0** - Renamed skill, added human-friendly identifier resolution, security review, fixed installation notes
 - **1.0.0** - Initial release with live broadcast detection (deprecated)
