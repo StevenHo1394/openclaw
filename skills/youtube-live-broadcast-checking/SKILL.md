@@ -1,123 +1,131 @@
-# YouTube Live & Upcoming Broadcast Checking Skill
+# YouTube Live Broadcast Checking Skill
 
-**As the live broadcast of the YouTube app may miss live broadcast notifications even if enabled, I developed this skill to check the next live broadcast time so that we won't miss the live broadcasts we like.**
+Checks upcoming live broadcast schedules and current live status for YouTube channels using the YouTube Data API v3.
+
+## Features
+
+- Add/remove channels to a watchlist
+- Get next scheduled broadcast for a channel
+- List all upcoming broadcasts across watchlist
+- Check if a channel is currently live (`get_live_broadcast`)
 
 ## Prerequisites
 
-This skill requires a **Google API key** with **YouTube Data API v3** enabled.
-
-### Getting a YouTube API Key
-
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the **YouTube Data API v3**:
-   - Navigate to "APIs & Services" → "Library"
-   - Search for "YouTube Data API v3"
-   - Click "Enable"
-4. Create credentials:
-   - Navigate to "APIs & Services" → "Credentials"
-   - Click "Create Credentials" → "API Key"
-   - Copy the generated API key
-5. (Optional but recommended) Restrict the API key:
-   - Click on the API key name
-   - Under "API restrictions", select "Restrict key"
-   - Choose "YouTube Data API v3"
-
-### Setting the API Key
-
-Set the `YOUTUBE_API_KEY` environment variable:
-
-```bash
-export YOUTUBE_API_KEY="your_api_key_here"
-```
-
-To make it permanent, add it to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) or use a `.env` file.
-
-**Important:** This skill uses the Google API key solely for read-only access to public YouTube data. No user data is stored or transmitted beyond the API calls to YouTube. The API key should be kept secret and never committed to version control.
-
-## Security
-
-This skill:
-- Uses the YouTube Data API with an API key (no OAuth tokens stored)
-- Does not store any user data beyond the watchlist (channel IDs and names)
-- All errors are sanitized to avoid information leakage
-- Input validation: channel IDs are validated before API calls
-- No command injection risks (parameterized API calls)
+- A Google Cloud project with **YouTube Data API v3** enabled
+- An API key with YouTube Data API access
+- The API key must be set as environment variable `YOUTUBE_API_KEY` for the agent session
 
 ## Tools
 
-### `add_channel`
+### `add_channel(channel_id)`
 
-Adds a YouTube channel to the watchlist. Accepts human-friendly identifiers: channel ID (`UC...`), custom URL (`@handle`), or full channel URL.
-
-**Parameters:**
-- `channel_id` (string): YouTube channel ID, handle (@name), or full URL
-
-**Returns:** `{ id, name, status: "added" }` or `{ error }`
-
-### `remove_channel`
-
-Removes a channel from the watchlist.
+Add a YouTube channel to the watchlist.
 
 **Parameters:**
-- `channel_id` (string): Channel ID or handle
+- `channel_id`: Channel ID (e.g., `UCabcd1234`) or handle/URL (the skill will resolve)
 
-**Returns:** `{ removed: true }` or `{ error }`
+**Returns:** `{ id, name, status: "added" }` or error
 
-### `list_channels`
+### `remove_channel(channel_id)`
 
-Lists all watched channels with names and timestamps.
+Remove a channel from the watchlist.
+
+**Parameters:**
+- `channel_id`: Channel ID
+
+**Returns:** `{ removed: true }` or error
+
+### `list_channels()`
+
+List all channels in the watchlist.
 
 **Returns:** Array of `{ id, name, added_at }`
 
-### `get_next_broadcast`
+### `get_next_broadcast(channel_id)`
 
-Fetches the earliest upcoming broadcast for a specified channel.
-
-**Parameters:**
-- `channel_id` (string): Channel ID or handle
-
-**Returns:** Broadcast object with `channel_id`, `channel_name`, `video_id`, `title`, `scheduled_start_time`, `thumbnail_url`, `video_url`; or `null` if none scheduled; or `{ error }` on failure.
-
-### `check_upcoming_broadcasts`
-
-Fetches upcoming broadcasts for multiple channels (or all watchlist if none specified). Results sorted by start time.
+Get the next upcoming broadcast for a specific channel.
 
 **Parameters:**
-- `channel_ids` (array of strings, optional): Channel IDs or handles. If omitted, uses watchlist.
+- `channel_id`: Channel ID or handle
 
-**Returns:** Array of broadcast objects (one per channel with upcoming streams), sorted ascending by `scheduled_start_time`. Omits channels with no upcoming broadcasts.
+**Returns:** Broadcast object with `video_id`, `title`, `scheduled_start_time`, `thumbnail_url`, `video_url` or `null` if none scheduled.
+
+### `check_upcoming_broadcasts(channel_ids?)`
+
+Check upcoming broadcasts for multiple channels. If `channel_ids` omitted, checks all watchlist channels.
+
+**Parameters:**
+- `channel_ids` (optional): Array of channel IDs
+
+**Returns:** Array of broadcast objects sorted by start time.
+
+### `get_live_broadcast(channel_id)`
+
+Check if a channel is currently live streaming.
+
+**Parameters:**
+- `channel_id`: Channel ID or handle
+
+**Returns:** Live broadcast object with `video_id`, `title`, `description`, `actual_start_time`, `concurrent_viewers`, `video_url` or `null` if not live.
+
+## Usage Example
+
+```javascript
+// Add a channel
+await skill.tools.add_channel({ channel_id: 'Sami Live HK' });
+
+// Check who's live now
+const live = await skill.tools.get_live_broadcast({ channel_id: 'Sami Live HK' });
+if (live) {
+  console.log(`Live: ${live.title} (${live.concurrent_viewers} viewers)`);
+}
+
+// Get next scheduled broadcast
+const next = await skill.tools.get_next_broadcast({ channel_id: 'UCfYvxA4eSAvoES5fffhnRnA' });
+```
 
 ## Installation
 
-1. Extract the skill to `workspace/skills/youtube-live-broadcast-checking/`
-2. **Important:** If you obtained a package that includes `node_modules/`, you can use it directly. If building from source, run:
-   ```bash
-   npm install --no-bin-links
-   ```
-   The `--no-bin-links` flag is required in Docker/overlayfs environments to avoid symlink errors (e.g., `uuid` package).
-3. Ensure `YOUTUBE_API_KEY` environment variable is set (see Prerequisites).
-4. Add `"youtube-live-broadcast-checking"` to your agent's skills list in `openclaw.json`
-5. Restart the OpenClaw gateway
+1. Copy the skill directory to `~/.openclaw/workspace/skills/`
+2. Run `npm install` inside the skill folder to install `googleapis`
+3. Add `"youtube-live-broadcast-checking"` to the desired agent's `skills` array in `openclaw.json`
+4. Ensure the agent's session has `YOUTUBE_API_KEY` set (e.g., in `auth-profiles.json` or gateway environment)
+5. Restart the agent or wait for next session
 
-## Watchlist Storage
+## Storage Behavior
 
-The skill stores the channel watchlist in:
-```
-~/.openclaw/workspace/memory/youtube-channels.json
-```
+The watchlist is stored **in memory only** and will be lost when the agent session restarts. For persistent storage across restarts, the skill would need to be modified to write to disk or use an external database.
 
-This location is independent of any specific agent workspace.
+## Quotas & Limits
 
-## Notes
+- YouTube Data API has daily quota limits (10,000 units by default). Each `channels.list` or `search.list` call costs varying units. Monitor your quota in Google Cloud Console.
+- If you encounter 403 errors, you may have exceeded your quota.
 
-- Quota: Each check costs ~3-5 API units per channel (channels.list + search.list + videos.list)
-- Only public channels and publicly scheduled streams are supported
-- Channel IDs must be valid; handles (e.g., `@SamiLiveHK`) are resolved via search (note: the actual display name "Sami Live HK" includes spaces, but the handle does not)
-- The skill requires the `YOUTUBE_API_KEY` environment variable (not `GOOGLE_API_KEY`)
+## Troubleshooting
+
+- `Missing YOUTUBE_API_KEY`: Ensure the environment variable is set for the agent session.
+- `Quota exceeded`: Check your Google Cloud Console quota usage.
+- Channel not found: Verify the channel ID; you may need to use the channel's handle or URL if the ID is unknown.
 
 ## Version History
 
-- **1.2.0** - Fixed inconsistencies: unified env var to YOUTUBE_API_KEY, standardized watchlist path, added requiredEnvVars in plugin metadata, security review
-- **1.1.0** - Initial enhanced version with human-friendly identifier resolution and upcoming broadcast tools
-- **1.0.0** - Initial release (deprecated)
+### v1.3.3 (latest)
+- Fixed manifest: `requiredEnvVars` now correctly includes `YOUTUBE_API_KEY`
+- Updated documentation to accurately describe in-memory watchlist storage (no persistence)
+- Clarified usage requirements and troubleshooting
+
+### v1.3.2
+- Refactored internal architecture: `config.js` isolates env access; `store.js` provides in-memory watchlist (no file I/O)
+- Resolved static analysis warnings about mixing env/file access with network
+- Plugin manifest updated to reflect proper requirements (still inaccurate in 1.3.2)
+
+### v1.3.1
+- Version bump only (no code changes)
+
+### v1.3.0
+- NEW tool: `get_live_broadcast` – detects if a channel is currently live streaming
+- Updated description to mention live status capability
+- Added version field to manifest
+
+### v1.2.0
+- Initial release with watchlist management, `get_next_broadcast`, and `check_upcoming_broadcasts`
