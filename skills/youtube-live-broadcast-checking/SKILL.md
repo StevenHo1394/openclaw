@@ -2,6 +2,8 @@
 
 Checks upcoming live broadcast schedules and current live status for YouTube channels using the YouTube Data API v3.
 
+**Repository:** https://github.com/StevenHo1394/openclaw/tree/main/skills/youtube-live-broadcast-checking
+
 ## Features
 
 - Add/remove channels to a watchlist
@@ -109,7 +111,14 @@ The watchlist is stored **in memory only** and will be lost when the agent sessi
 
 ## Version History
 
-### v1.3.3 (latest)
+### v1.3.4 (latest)
+- **Publication readiness**: Added `repository` field to `package.json` with canonical source URL; added author contact; added bug tracker and homepage links
+- Added `clawhub.json` with explicit `installSpec`, `requiredEnvVars`, and dependency declarations to prevent registry metadata mismatches
+- Bumped version to align all manifests (package.json, package-lock.json, openclaw.plugin.json, SKILL.md)
+- Regenerated `package-lock.json` to ensure lockfile integrity
+- Verified dependency surface (`googleapis@^126.0.0`) and confirmed no known vulnerabilities at publish time
+
+### v1.3.3
 - Fixed manifest: `requiredEnvVars` now correctly includes `YOUTUBE_API_KEY`
 - Updated documentation to accurately describe in-memory watchlist storage (no persistence)
 - Clarified usage requirements and troubleshooting
