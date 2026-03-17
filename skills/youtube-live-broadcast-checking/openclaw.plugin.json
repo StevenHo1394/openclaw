@@ -1,7 +1,8 @@
 {
   "id": "youtube-live-broadcast-checking",
   "name": "YouTube Live Broadcast Checking",
-  "description": "Checks next live broadcast times for YouTube channels using YouTube Data API v3.",
+  "description": "Checks next live broadcast times and current live status for YouTube channels using YouTube Data API v3.",
+  "version": "1.2.0",
   "tools": [
     {
       "name": "add_channel",
@@ -117,6 +118,33 @@
             "thumbnail_url": { "type": "string" },
             "video_url": { "type": "string" }
           }
+        }
+      }
+    },
+    {
+      "name": "get_live_broadcast",
+      "description": "Checks if a channel is currently live streaming; returns live video details or null if not live",
+      "input": {
+        "type": "object",
+        "properties": {
+          "channel_id": {
+            "type": "string",
+            "description": "Channel ID or handle to check"
+          }
+        },
+        "required": ["channel_id"]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "channel_id": { "type": "string" },
+          "video_id": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "thumbnail_url": { "type": "string" },
+          "video_url": { "type": "string" },
+          "actual_start_time": { "type": "string", "format": "date-time" },
+          "concurrent_viewers": { "type": "string" }
         }
       }
     },

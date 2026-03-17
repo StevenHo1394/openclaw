@@ -411,6 +411,59 @@ async function checkUpcomingBroadcasts(params) {
   });
 }
 
+// Tool: get_live_broadcast — checks if a channel is currently live
+async function getLiveBroadcast(params) {
+  return withResolvedChannel(params, async ({ channel_id }) => {
+    try {
+      const youtube = getYouTubeClient();
+
+      // Search for live videos from this channel
+      const searchResponse = await youtube.search.list({
+        part: ['snippet'],
+        channelId: channel_id,
+        eventType: 'live',
+        type: 'video',
+        maxResults: 1
+      });
+
+      if (!searchResponse.data.items || searchResponse.data.items.length === 0) {
+        return null; // No live broadcast
+      }
+
+      const video = searchResponse.data.items[0];
+      const videoId = video.id.videoId;
+
+      // Optionally fetch more video details
+      const videoResponse = await youtube.videos.list({
+        part: ['snippet', 'liveStreamingDetails'],
+        id: videoId
+      });
+
+      const videoInfo = videoResponse.data.items?.[0] || video;
+      const snippet = videoInfo.snippet || video.snippet;
+
+      return {
+        channel_id: channel_id,
+        video_id: videoId,
+        title: snippet.title,
+        description: snippet.description,
+        thumbnail_url: snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url,
+        video_url: `https://www.youtube.com/watch?v=${videoId}`,
+        actual_start_time: videoInfo.liveStreamingDetails?.actualStartTime || null,
+        concurrent_viewers: videoInfo.liveStreamingDetails?.concurrentViewers || null
+      };
+    } catch (err) {
+      console.error('YouTube API error (get_live_broadcast):', err.message);
+
+      if (err.response?.status === 403) {
+        return { error: 'Quota exceeded or live streaming not enabled for this channel' };
+      } else {
+        return { error: `YouTube API error: ${err.message}` };
+      }
+    }
+  });
+}
+
 // Export tools for OpenClaw
 module.exports = {
   tools: {
@@ -419,6 +472,7 @@ module.exports = {
     list_channels: listChannels,
     get_next_broadcast: getNextBroadcast,
     check_upcoming_broadcasts: checkUpcomingBroadcasts,
+    get_live_broadcast: getLiveBroadcast,
     // Preserve deprecation
     check_live_status: async () => {
       return { error: 'check_live_status is deprecated. Use check_upcoming_broadcasts instead.' };
