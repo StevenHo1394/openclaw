@@ -1,66 +1,23 @@
 const { google } = require('googleapis');
-const fs = require('fs');
-const path = require('path');
-
-// Configuration
-const MEMORY_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.openclaw', 'workspace', 'memory');
-const WATCHLIST_FILE = path.join(MEMORY_DIR, 'youtube-channels.json');
-
-// Ensure memory directory exists
-if (!fs.existsSync(MEMORY_DIR)) {
-  fs.mkdirSync(MEMORY_DIR, { recursive: true });
-}
-
-// Load watchlist once at startup (prevent file reads during network operations)
-function loadWatchlistFromDisk() {
-  try {
-    if (fs.existsSync(WATCHLIST_FILE)) {
-      const data = fs.readFileSync(WATCHLIST_FILE, 'utf8');
-      return JSON.parse(data);
-    }
-  } catch (err) {
-    console.error('Failed to load watchlist:', err.message);
-  }
-  return { channels: [] };
-}
-
-let WATCHLIST = loadWatchlistFromDisk();
-
-// Save watchlist to disk
-function saveWatchlistToDisk(watchlist) {
-  try {
-    const tempFile = WATCHLIST_FILE + '.tmp';
-    fs.writeFileSync(tempFile, JSON.stringify(watchlist, null, 2));
-    fs.renameSync(tempFile, WATCHLIST_FILE);
-    return true;
-  } catch (err) {
-    console.error('Failed to save watchlist:', err.message);
-    return false;
-  }
-}
-
-// YouTube credentials: read once at module load
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
-if (!YOUTUBE_API_KEY) {
-  console.error('Warning: YOUTUBE_API_KEY not set; YouTube skill may fail');
-}
+const { getYoutubeApiKey } = require('./config');
+const store = require('./store');
 
 // YouTube API client (lazy init)
 let youtubeClient = null;
 
 function getYouTubeClient() {
   if (youtubeClient) return youtubeClient;
-  if (!YOUTUBE_API_KEY) {
+  const apiKey = getYoutubeApiKey();
+  if (!apiKey) {
     throw new Error('Missing YOUTUBE_API_KEY environment variable');
   }
   youtubeClient = google.youtube({
     version: 'v3',
-    auth: YOUTUBE_API_KEY
+    auth: apiKey
   });
   return youtubeClient;
 }
 
-// Validation helpers
 function isValidChannelId(channelId) {
   return typeof channelId === 'string' && (channelId.startsWith('UC') || channelId.startsWith('PL'));
 }
@@ -72,12 +29,10 @@ async function resolveChannelId(identifier, youtube) {
 
   const trimmed = identifier.trim();
 
-  // Already a valid channel ID
   if (isValidChannelId(trimmed)) {
     return { channelId: trimmed };
   }
 
-  // Extract from URL patterns
   try {
     const urlMatch = trimmed.match(/(?:youtube\.com\/(?:channel\/|@|user\/)?([^\/\?]+))/);
     if (urlMatch) {
@@ -87,10 +42,9 @@ async function resolveChannelId(identifier, youtube) {
       }
     }
   } catch {
-    // ignore extraction errors, continue to search
+    // continue to search
   }
 
-  // If not resolved via URL, attempt to search for the channel by name
   try {
     const searchResp = await youtube.search.list({
       part: ['snippet'],
@@ -111,7 +65,6 @@ async function resolveChannelId(identifier, youtube) {
   return { error: 'Could not resolve channel identifier' };
 }
 
-// Upcoming broadcast fetch helper
 async function getUpcomingForChannel(channelId, youtube) {
   try {
     const searchResp = await youtube.search.list({
@@ -123,12 +76,10 @@ async function getUpcomingForChannel(channelId, youtube) {
     });
 
     const upcomingVideos = searchResp.data.items || [];
-
     if (upcomingVideos.length === 0) {
       return null;
     }
 
-    // Enrich with liveStreamingDetails
     const videoIds = upcomingVideos.map(v => v.id.videoId).join(',');
     const detailsResp = await youtube.videos.list({
       part: ['liveStreamingDetails'],
@@ -149,7 +100,7 @@ async function getUpcomingForChannel(channelId, youtube) {
         thumbnail_url: v.snippet.thumbnails?.high?.url || v.snippet.thumbnails?.default?.url || '',
         video_url: `https://www.youtube.com/watch?v=${v.id.videoId}`
       };
-    }).filter(r => r.scheduled_start_time); // Only keep those with start time
+    }).filter(r => r.scheduled_start_time);
 
     if (results.length === 0) {
       return null;
@@ -163,18 +114,10 @@ async function getUpcomingForChannel(channelId, youtube) {
   }
 }
 
-// Wrapper: resolve channel and ensure existence in WATCHLIST when appropriate
 async function withResolvedChannel(params, handler) {
   const { channel_id } = params;
   if (!channel_id) {
     return { error: 'channel_id is required' };
-  }
-
-  // If channel_id is the literal string "watchlist", use all from WATCHLIST (for list operations)
-  if (channel_id === 'watchlist' || channel_id === '__watchlist__') {
-    // Handler expects an object with channel_id; we'll pass the whole watchlist later in specific tools
-    // This is a special marker; we handle in each tool separately if needed.
-    // For simplicity, don't use that pattern; each tool directly uses WATCHLIST when needed.
   }
 
   const youtube = getYouTubeClient();
@@ -189,9 +132,7 @@ async function withResolvedChannel(params, handler) {
 // Tool: add_channel
 async function addChannel(params) {
   return withResolvedChannel(params, async ({ channel_id }) => {
-    // Check if exists in in-memory watchlist
-    const existing = WATCHLIST.channels.find(c => c.id === channel_id);
-    if (existing) {
+    if (store.findChannel(channel_id)) {
       return { success: false, message: `Channel ${channel_id} is already in the watchlist` };
     }
 
@@ -210,20 +151,13 @@ async function addChannel(params) {
       const channelInfo = response.data.items[0];
       const channelName = channelInfo.snippet.title;
 
-      WATCHLIST.channels.push({
+      store.addChannel({
         id: channel_id,
         name: channelName,
         added_at: new Date().toISOString()
       });
 
-      const saved = saveWatchlistToDisk(WATCHLIST);
-      if (saved) {
-        return { id: channel_id, name: channelName, status: 'added' };
-      } else {
-        // Rollback memory change
-        WATCHLIST.channels.pop();
-        return { error: 'Failed to save watchlist' };
-      }
+      return { id: channel_id, name: channelName, status: 'added' };
     } catch (err) {
       console.error('YouTube API error:', err.message);
       if (err.message.includes('API key') || err.response?.status === 400) {
@@ -242,27 +176,16 @@ async function addChannel(params) {
 // Tool: remove_channel
 async function removeChannel(params) {
   return withResolvedChannel(params, async ({ channel_id }) => {
-    const index = WATCHLIST.channels.findIndex(c => c.id === channel_id);
-    if (index === -1) {
+    if (!store.removeChannelById(channel_id)) {
       return { error: `Channel ${channel_id} not found in watchlist` };
     }
-
-    // Remove from in-memory watchlist
-    const removed = WATCHLIST.channels.splice(index, 1)[0];
-    const saved = saveWatchlistToDisk(WATCHLIST);
-    if (saved) {
-      return { removed: true, channel: removed };
-    } else {
-      // Restore
-      WATCHLIST.channels.splice(index, 0, removed);
-      return { error: 'Failed to save watchlist' };
-    }
+    return { removed: true };
   });
 }
 
 // Tool: list_channels
 async function listChannels() {
-  return WATCHLIST.channels;
+  return store.getWatchlist();
 }
 
 // Tool: get_next_broadcast
@@ -275,9 +198,8 @@ async function getNextBroadcast(params) {
         return null;
       }
 
-      // Get channel name from WATCHLIST if available, otherwise quick lookup
       let channelName = 'Unknown Channel';
-      const fromWatchlist = WATCHLIST.channels.find(c => c.id === channel_id);
+      const fromWatchlist = store.findChannel(channel_id);
       if (fromWatchlist) {
         channelName = fromWatchlist.name;
       } else {
@@ -318,9 +240,8 @@ async function checkUpcomingBroadcasts(params) {
   const { channel_ids } = params;
   let channelIds = channel_ids;
 
-  // Use in-memory watchlist if none provided
   if (!channelIds || channelIds.length === 0) {
-    channelIds = WATCHLIST.channels.map(c => c.id);
+    channelIds = store.getWatchlist();
   }
 
   if (!Array.isArray(channelIds) || channelIds.length === 0) {
@@ -333,9 +254,8 @@ async function checkUpcomingBroadcasts(params) {
 
     const channelPromises = channelIds.map(async (channelId) => {
       try {
-        // Get channel name from WATCHLIST if present
         let channelName = 'Unknown Channel';
-        const fromWatchlist = WATCHLIST.channels.find(c => c.id === channelId);
+        const fromWatchlist = store.findChannel(channelId);
         if (fromWatchlist) {
           channelName = fromWatchlist.name;
         } else {
@@ -385,13 +305,12 @@ async function checkUpcomingBroadcasts(params) {
   }
 }
 
-// Tool: get_live_broadcast — checks if a channel is currently live
+// Tool: get_live_broadcast
 async function getLiveBroadcast(params) {
   return withResolvedChannel(params, async ({ channel_id }) => {
     try {
       const youtube = getYouTubeClient();
 
-      // Search for live videos from this channel
       const searchResp = await youtube.search.list({
         part: ['snippet'],
         channelId: channel_id,
@@ -401,13 +320,12 @@ async function getLiveBroadcast(params) {
       });
 
       if (!searchResp.data.items || searchResp.data.items.length === 0) {
-        return null; // No live broadcast
+        return null;
       }
 
       const video = searchResp.data.items[0];
       const videoId = video.id.videoId;
 
-      // Fetch additional video details (liveStreamingDetails)
       const videoResp = await youtube.videos.list({
         part: ['snippet', 'liveStreamingDetails'],
         id: videoId
@@ -437,6 +355,11 @@ async function getLiveBroadcast(params) {
   });
 }
 
+// Deprecated
+async function checkLiveStatus() {
+  return { error: 'check_live_status is deprecated. Use check_upcoming_broadcasts instead.' };
+}
+
 // Export
 module.exports = {
   tools: {
@@ -446,9 +369,6 @@ module.exports = {
     get_next_broadcast: getNextBroadcast,
     check_upcoming_broadcasts: checkUpcomingBroadcasts,
     get_live_broadcast: getLiveBroadcast,
-    // Preserve deprecation
-    check_live_status: async () => ({
-      error: 'check_live_status is deprecated. Use check_upcoming_broadcasts instead.'
-    })
+    check_live_status: checkLiveStatus
   }
 };
