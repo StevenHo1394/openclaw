@@ -1,0 +1,110 @@
+{
+  "id": "hk-horse-racing",
+  "name": "HK Horse Racing",
+  "description": "Fetches HKJC race cards, filters SB horses, and recommends top picks per race. Strict language adherence: when language='zh', uses only Chinese name fields; when 'en', uses only English. Also supports exclusions, single-race fetch, and rate limiting (60s).",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "fetchRaceCard",
+      "description": "Fetch race card for a given date (default: today) with odds, horse details, and recommendations",
+      "input": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "Date in YYYY-MM-DD format (default: today in HKT)"
+          },
+          "classFilter": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional list of class strings to filter (e.g., [\"Class 4\"])"
+          },
+          "language": {
+            "type": "string",
+            "enum": ["en", "zh"],
+            "description": "Output language for names and labels. 'en' for English, 'zh' for Chinese. Default: 'en'."
+          },
+          "excludeHorseNos": {
+            "type": "array",
+            "items": { "type": "number" },
+            "description": "Optional list of horse numbers to exclude from output and recommendations (e.g., [7])."
+          },
+          "excludeBarriers": {
+            "type": "array",
+            "items": { "type": "number" },
+            "description": "Optional list of barrier numbers to exclude from output and recommendations (e.g., [7])."
+          },
+          "raceNo": {
+            "type": "number",
+            "description": "Optional: fetch only this specific race number. If omitted, returns all races for the date."
+          }
+        },
+        "required": []
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "meeting": {
+            "type": "object",
+            "properties": {
+              "venue": { "type": "string" },
+              "date": { "type": "string" },
+              "weather": { "type": "string" },
+              "trackCondition": { "type": "string" }
+            }
+          },
+          "races": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "raceNo": { "type": "number" },
+                "distance": { "type": "number" },
+                "class": { "type": "string" },
+                "going": { "type": "string" },
+                "horses": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "horseNo": { "type": "number" },
+                      "horseName": { "type": "string" },
+                      "horseId": { "type": "string" },
+                      "weight": { "type": "number" },
+                      "jockey": { "type": "string" },
+                      "jockeyAllowance": { "type": "number" },
+                      "trainer": { "type": "string" },
+                      "pastRuns": { "type": "array", "items": { "type": "number" } },
+                      "gear": { "type": "array", "items": { "type": "string" } },
+                      "winOdds": { "type": "number" },
+                      "placeOdds": { "type": "number" }
+                    }
+                  }
+                },
+                "recommendations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "horseName": { "type": "string" },
+                      "reason": { "type": "string" },
+                      "winProbability": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "source": { "type": "string" },
+          "timestamp": { "type": "string" }
+        }
+      }
+    }
+  ],
+  "runtime": "node",
+  "main": "skill.js",
+  "installCommand": "npm install",
+  "requiredEnvVars": []
+}

@@ -1,0 +1,15 @@
+{
+  "name": "hk-horse-racing",
+  "version": "1.0.0",
+  "description": "Fetches HKJC race cards with current odds and horse data; recommends top horses; supports EN/ZH; strict language handling; rate limiting and caching; exclude by horse/barrier; single-race fetch.",
+  "main": "skill.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": ["openclaw", "hkjc", "racing"],
+  "author": "Steven Ho",
+  "license": "ISC",
+  "dependencies": {
+    "hkjc-api": "^1.0.0"
+  }
+}
