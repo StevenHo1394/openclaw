@@ -238,58 +238,72 @@ async function getNextBroadcast(params) {
 // Tool: check_upcoming_broadcasts
 async function checkUpcomingBroadcasts(params) {
   const { channel_ids } = params;
-  let channelIds = channel_ids;
+  let channelIdentifiers = channel_ids;
 
-  if (!channelIds || channelIds.length === 0) {
-    channelIds = store.getWatchlist();
+  if (!channelIdentifiers || channelIdentifiers.length === 0) {
+    // Get watchlist; convert stored channel objects to IDs
+    const watchlist = store.getWatchlist();
+    channelIdentifiers = watchlist.map(ch => ch.id);
   }
 
-  if (!Array.isArray(channelIds) || channelIds.length === 0) {
+  if (!Array.isArray(channelIdentifiers) || channelIdentifiers.length === 0) {
     return [];
   }
 
   try {
     const youtube = getYouTubeClient();
     const results = [];
+    const channelPromises = [];
 
-    const channelPromises = channelIds.map(async (channelId) => {
-      try {
-        let channelName = 'Unknown Channel';
-        const fromWatchlist = store.findChannel(channelId);
-        if (fromWatchlist) {
-          channelName = fromWatchlist.name;
-        } else {
-          try {
-            const channelResp = await youtube.channels.list({
-              part: ['snippet'],
-              id: channelId,
-              maxResults: 1
+    for (const identifier of channelIdentifiers) {
+      channelPromises.push((async () => {
+        try {
+          // Resolve identifier to a channel ID
+          const resolved = await resolveChannelId(identifier, youtube);
+          if (resolved.error) {
+            console.error(`Skipping channel ${identifier}: ${resolved.error}`);
+            return;
+          }
+          const channelId = resolved.channelId;
+
+          // Determine channel name
+          let channelName = 'Unknown Channel';
+          const fromWatchlist = store.findChannel(channelId);
+          if (fromWatchlist) {
+            channelName = fromWatchlist.name;
+          } else {
+            try {
+              const channelResp = await youtube.channels.list({
+                part: ['snippet'],
+                id: channelId,
+                maxResults: 1
+              });
+              if (channelResp.data.items?.[0]?.snippet?.title) {
+                channelName = channelResp.data.items[0].snippet.title;
+              }
+            } catch (_) {}
+          }
+
+          const upcoming = await getUpcomingForChannel(channelId, youtube);
+          if (upcoming) {
+            results.push({
+              channel_id: channelId,
+              channel_name: channelName,
+              video_id: upcoming.video_id,
+              title: upcoming.title,
+              scheduled_start_time: upcoming.scheduled_start_time,
+              thumbnail_url: upcoming.thumbnail_url,
+              video_url: upcoming.video_url
             });
-            if (channelResp.data.items?.[0]?.snippet?.title) {
-              channelName = channelResp.data.items[0].snippet.title;
-            }
-          } catch (_) {}
+          }
+        } catch (err) {
+          console.error(`Error processing channel ${identifier}:`, err.message);
+          if (err.response?.status === 403) {
+            throw err;
+          }
         }
-
-        const upcoming = await getUpcomingForChannel(channelId, youtube);
-        if (upcoming) {
-          results.push({
-            channel_id: channelId,
-            channel_name: channelName,
-            video_id: upcoming.video_id,
-            title: upcoming.title,
-            scheduled_start_time: upcoming.scheduled_start_time,
-            thumbnail_url: upcoming.thumbnail_url,
-            video_url: upcoming.video_url
-          });
-        }
-      } catch (err) {
-        console.error(`Error processing channel ${channelId}:`, err.message);
-        if (err.response?.status === 403) {
-          throw err;
-        }
-      }
-    });
+      })());
+    }
 
     await Promise.all(channelPromises);
 

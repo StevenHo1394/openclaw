@@ -1,6 +1,6 @@
 {
   "name": "youtube-live-broadcast-checking",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "Checks upcoming live broadcast schedules and current live status for YouTube channels using YouTube Data API v3",
   "installSpec": {
     "type": "npm",

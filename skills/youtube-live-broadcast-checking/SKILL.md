@@ -54,10 +54,10 @@ Get the next upcoming broadcast for a specific channel.
 
 ### `check_upcoming_broadcasts(channel_ids?)`
 
-Check upcoming broadcasts for multiple channels. If `channel_ids` omitted, checks all watchlist channels.
+Check upcoming broadcasts for multiple channels. If `channel_ids` omitted, checks all watchlist channels. Accepts channel IDs, handles (e.g., `@chan22`), or display names; these are resolved automatically via YouTube API search.
 
 **Parameters:**
-- `channel_ids` (optional): Array of channel IDs
+- `channel_ids` (optional): Array of channel IDs, handles, or display names
 
 **Returns:** Array of broadcast objects sorted by start time.
 
@@ -111,12 +111,20 @@ The watchlist is stored **in memory only** and will be lost when the agent sessi
 
 ## Version History
 
+### v1.3.5 (latest)
+- Improved `check_upcoming_broadcasts` to accept display names (e.g., `'Sami Live HK'`) or handles (e.g., `'@chan22'`) in addition to channel IDs, resolving them automatically via YouTube API search.
+- Updated tool documentation accordingly.
+- Bumped version to 1.3.5.
+
 ### v1.3.4 (latest)
 - **Publication readiness**: Added `repository` field to `package.json` with canonical source URL; added author contact; added bug tracker and homepage links
 - Added `clawhub.json` with explicit `installSpec`, `requiredEnvVars`, and dependency declarations to prevent registry metadata mismatches
 - Bumped version to align all manifests (package.json, package-lock.json, openclaw.plugin.json, SKILL.md)
 - Regenerated `package-lock.json` to ensure lockfile integrity
 - Verified dependency surface (`googleapis@^126.0.0`) and confirmed no known vulnerabilities at publish time
+
+### v1.3.4
+- Internal refactor and documentation updates.
 
 ### v1.3.3
 - Fixed manifest: `requiredEnvVars` now correctly includes `YOUTUBE_API_KEY`

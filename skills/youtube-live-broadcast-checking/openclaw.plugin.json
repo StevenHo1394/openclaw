@@ -2,7 +2,7 @@
   "id": "youtube-live-broadcast-checking",
   "name": "YouTube Live Broadcast Checking",
   "description": "Checks next live broadcast times and current live status for YouTube channels using YouTube Data API v3.",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "author": "Steven Ho <stevenho1394@users.noreply.github.com>",
   "repository": {
     "type": "git",
@@ -103,14 +103,14 @@
     },
     {
       "name": "check_upcoming_broadcasts",
-      "description": "Fetches upcoming broadcasts for specified channels or all watchlist; results sorted by start time",
+      "description": "Fetches upcoming broadcasts for specified channels or all watchlist; results sorted by start time. Accepts channel IDs, handles (e.g., @chan22), or display names. Handles are resolved via YouTube API search.",
       "input": {
         "type": "object",
         "properties": {
           "channel_ids": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Optional array of channel IDs or handles. If omitted, checks all watchlist channels."
+            "description": "Optional array of channel IDs, handles, or display names (e.g., ['Sami Live HK', '@chan22']). If omitted, checks all watchlist channels."
           }
         },
         "required": []
