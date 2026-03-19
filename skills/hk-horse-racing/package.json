@@ -1,7 +1,7 @@
 {
   "name": "hk-horse-racing",
-  "version": "1.1.0",
-  "description": "Fetches HKJC race cards with current odds and horse data; recommends top horses; advanced scoring (trainer/jockey bonuses, barrier effectiveness); rate limiting and caching; exclude by horse/barrier; single-race fetch.",
+  "version": "1.2.0",
+  "description": "Fetches HKJC race cards with current odds and horse data; recommends top horses; advanced scoring (trainer/jockey bonuses, barrier effectiveness, weight penalty, light weight bonus); rate limiting and caching; exclude by horse/barrier; single-race fetch.",
   "main": "skill.js",
   "scripts": {
     "test": "node test.js"

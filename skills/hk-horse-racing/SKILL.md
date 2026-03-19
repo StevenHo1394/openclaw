@@ -1,10 +1,10 @@
 # HK Horse Racing Skill
 
 This skill provides two core functions:
-- **Race card data** – Fetches Hong Kong Jockey Club race cards for a given date, including meeting details, race conditions, and complete horse data (jockey, trainer, barrier, weight, past runs, gear, win/place odds).
-- **Recommended picks** – Analyzes the field and returns up to 4 recommended horses per race with reasoning (win odds, barrier, weight, recent form, gear), plus an estimated win probability.
+- **Race card data** - Fetches Hong Kong Jockey Club race cards for a given date, including meeting details, race conditions, and complete horse data (jockey, trainer, barrier, weight, past runs, gear, win/place odds).
+- **Recommended picks** - Analyzes the field and returns up to 4 recommended horses per race with reasoning (win odds, barrier, weight, recent form, gear), plus an estimated win probability.
 
-English output only. Additional features: exclude by horse number or barrier, single-race fetch (`raceNo`), 15‑minute caching, and 60‑second rate limiting between fresh API calls.
+English output only. Additional features: exclude by horse number or barrier, single-race fetch (`raceNo`), 15‑minute caching, and 60‑second rate limiting between fresh API fetches. Advanced scoring includes trainer/jockey bonuses, barrier effectiveness, and weight penalty.
 
 **Repository:** https://github.com/StevenHo1394/openclaw/tree/main/skills/hk-horse-racing
 
@@ -20,10 +20,11 @@ Fetch race card for a given date (default: today in HKT). Includes race details,
 - `excludeHorseNos` (array of numbers, optional): List of horse numbers to exclude from the `horses` array and from recommendations (e.g., `[7]`).
 - `excludeBarriers` (array of numbers, optional): List of barrier numbers to exclude from the `horses` array and from recommendations (e.g., `[7]`).
 - `raceNo` (number, optional): If provided, returns only this specific race. Omit to get all races for the date.
-- `advancedScoring` (boolean, optional): Enable advanced scoring that includes trainer/jockey bonuses, barrier effectiveness, and optional news sentiment boosts. Default: `false`.
-- `tjBonusWeight` (number, optional): Weight for trainer/jockey combo bonus when `advancedScoring=true`. Range 0–0.3. Default: `0.1`.
-- `barrierBonusWeight` (number, optional): Weight for barrier effectiveness bonus when `advancedScoring=true`. Range 0–0.2. Default: `0.05`.
+- `advancedScoring` (boolean, optional): Enable advanced scoring that includes trainer/jockey bonuses, barrier effectiveness, weight penalty, and light weight bonus. Default: `false`.
+- `tjBonusWeight` (number, optional): Weight for trainer/jockey combo bonus when `advancedScoring=true`. Range 0-0.3. Default: `0.15`.
+- `barrierBonusWeight` (number, optional): Weight for barrier effectiveness bonus when `advancedScoring=true`. Range 0-0.2. Default: `0.12`.
 - `newsBoost` (boolean, optional): When `advancedScoring=true`, also include news sentiment boost (stub, not implemented). Default: `false`.
+- `lightWeightBonus` (number, optional): Bonus for horses with weight < 120lb when `advancedScoring=true`. Range 0-0.2. Default: `0.05`.
 
 **Returns (object):**
 ```json
@@ -73,10 +74,10 @@ Fetch race card for a given date (default: today in HKT). Includes race details,
 ```
 
 **Notes:**
-- Stand‑by (SB) horses are excluded from the `horses` list.
+- Stand-by (SB) horses are excluded from the `horses` list.
 - `recommendations` are derived from win odds and recent form; only horses with both are considered.
 - Probabilities are normalized implied probabilities from market odds, adjusted by form.
-- When `advancedScoring=true`, additional bonuses may be applied: top jockey + top trainer combo (+tjBonusWeight), barrier effectiveness (+/- depending on distance class), and optional news sentiment (stub).
+- When `advancedScoring=true`, additional bonuses may be applied: top jockey + top trainer combo (+tjBonusWeight), barrier effectiveness (+/- depending on distance class), and weight penalty for horses carrying significantly above average weight.
 - **Chinese names**: Chinese horse/trainer/jockey names (name_ch fields) may be present in the source data but are not guaranteed to exist. The skill returns English names by default; if an English name is missing, the field shows `(no English name)`. Chinese names are not used in output.
 
 ## Prerequisites
@@ -93,7 +94,7 @@ Fetch race card for a given date (default: today in HKT). Includes race details,
 
 ## Rate Limiting
 
-To avoid overloading the HKJC source, the skill enforces a **1‑minute cooldown** between fresh API fetches. Cached data (within 15 minutes) is served without delay. If you attempt a fresh fetch sooner than 60 seconds after the previous one, the skill throws an error: `Rate limit: please wait Xs before fetching new data.`
+To avoid overloading the HKJC source, the skill enforces a **1-minute cooldown** between fresh API fetches. Cached data (within 15 minutes) is served without delay. If you attempt a fresh fetch sooner than 60 seconds after the previous one, the skill throws an error: `Rate limit: please wait Xs before fetching new data.`
 
 ## Notes
 
@@ -101,7 +102,7 @@ To avoid overloading the HKJC source, the skill enforces a **1‑minute cooldown
 - Odds are fetched separately per race (WIN and PLA by default). Additional odds types can be added by modifying the skill.
 - If the API does not return past performance data, that field will be empty.
 - The skill caches results for 15 minutes to reduce load.
-- `advancedScoring` features are experimental and use heuristics; tune `tjBonusWeight` and `barrierBonusWeight` as needed.
+- `advancedScoring` features are experimental and use heuristics; tune `tjBonusWeight`, `barrierBonusWeight`, and `lightWeightBonus` as needed. Weight penalty and light weight bonus apply automatically when `advancedScoring=true`.
 
 ## Troubleshooting
 
@@ -113,17 +114,30 @@ If the skill fails to install or run:
 
 ## Version History
 
+### v1.2.0
+- Added weight penalty in advanced scoring: horses carrying >2 lb above average weight incur a small score penalty.
+- Added class‑drop bonus stub (requires historical class data to activate).
+- Refined advanced scoring defaults: `tjBonusWeight` 0.15, `barrierBonusWeight` 0.12.
+- Added `lightWeightBonus` (default 0.05) to reward horses under 120 lb in advanced scoring.
+- Expanded top jockey and trainer sets.
+- Clarified Chinese name handling and removed agent‑specific examples.
+- Added disclaimer about betting risk.
+
 ### v1.1.0
-- Added advanced scoring: trainer/jockey top-pair bonus, barrier effectiveness by distance, news sentiment placeholder.
+- Added advanced scoring: trainer/jockey top‑pair bonus, barrier effectiveness by distance, news sentiment placeholder.
 - New parameters: `advancedScoring`, `tjBonusWeight`, `barrierBonusWeight`, `newsBoost`.
 - Changed license from ISC to MIT.
-- Removed agent-specific examples (e.g., Jonah).
-- Clarified Chinese name handling: may exist but not guaranteed; English-only output.
+- Removed agent‑specific examples (e.g., Jonah).
+- Clarified Chinese name handling: may exist but not guaranteed; English‑only output.
 
 ### v1.0.0
-- Initial stable release with race card fetch, top 4 recommendations, strict English output, exclusions, single-race fetch, rate limiting, and caching.
+- Initial stable release with race card fetch, top 4 recommendations, strict English output, exclusions, single‑race fetch, rate limiting, and caching.
+
+## Disclaimer
+
+This skill is provided for informational purposes only. It does not constitute financial or betting advice. The author makes no guarantees regarding the accuracy, completeness, or timeliness of the data and recommendations. You are solely responsible for any betting decisions and any resulting losses. Use this skill at your own risk.
 
 ---
 
-**Author:** Steven Ho  
+**Author:** Steven Ho
 **License:** MIT

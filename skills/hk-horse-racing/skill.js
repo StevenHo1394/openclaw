@@ -6,13 +6,15 @@ const cache = new Map();
 let lastApiCall = 0;
 const RATE_LIMIT_MS = 60 * 1000; // 1 minute
 
-function makeCacheKey({date, classFilter, excludeHorseNos, excludeBarriers, advancedScoring, newsBoost}) {
+function makeCacheKey({date, classFilter, excludeHorseNos, excludeBarriers, raceNo, advancedScoring, newsBoost, lightWeightBonus}) {
   const cf = JSON.stringify((classFilter || []).sort());
   const ehn = JSON.stringify((excludeHorseNos || []).sort());
   const eb = JSON.stringify((excludeBarriers || []).sort());
+  const rn = raceNo != null ? String(raceNo) : 'all';
   const adv = advancedScoring ? '1' : '0';
   const news = newsBoost ? '1' : '0';
-  return `${date}|${cf}|${ehn}|${eb}|${adv}|${news}`;
+  const lwb = lightWeightBonus != null ? String(lightWeightBonus) : '0.05';
+  return `${date}|${cf}|${ehn}|${eb}|${rn}|${adv}|${news}|${lwb}`;
 }
 
 function getTodayHKT() {
@@ -78,7 +80,8 @@ function computeRecommendations(horses, options = {}) {
     tjBonusWeight = 0.1,
     barrierBonusWeight = 0.05,
     raceDistance = null,
-    newsBoost = false
+    newsBoost = false,
+    lightWeightBonus = 0.05
   } = options;
 
   // Only consider horses with valid winOdds and at least some form data
@@ -112,39 +115,54 @@ function computeRecommendations(horses, options = {}) {
   }
 
   // Base combined score: 0.6 implied, 0.4 form
-  const baseWeight = 0.6 + 0.4; // =1.0 but we’ll adjust if extra bonuses enabled
   const scores = {};
   for (const h of candidates) {
     let score = 0.6 * implied[h.horseName] + 0.4 * formScore[h.horseName];
-    scores[h.horseName] = { score, reasons: [] };
+    scores[h.horseName] = { score, reasons: {} };
   }
 
-  // Advanced bonuses
+  // Advanced scoring
   if (advancedScoring) {
-    // Trainer/Jockey bonus: if both jockey and trainer are top-tier, add tjBonusWeight
+    // 1) Trainer/Jockey bonus: both top-tier
     for (const h of candidates) {
       const isTopJockey = h.jockey && TOP_JOCKEYS.has(h.jockey);
       const isTopTrainer = h.trainer && TOP_TRAINERS.has(h.trainer);
       if (isTopJockey && isTopTrainer) {
         scores[h.horseName].score += tjBonusWeight;
-        scores[h.horseName].reasons.push(`TJ bonus +${(tjBonusWeight*100).toFixed(1)}%`);
+        scores[h.horseName].reasons.tj = true;
       }
     }
-    // Barrier effectiveness bonus
+    // 2) Barrier effectiveness by distance
     if (raceDistance != null) {
       for (const h of candidates) {
         const bEff = barrierEffectiveness(h.barrier, raceDistance);
         const bonus = bEff * barrierBonusWeight;
         if (Math.abs(bonus) > 0.001) {
           scores[h.horseName].score += bonus;
-          scores[h.horseName].reasons.push(`Barrier ${bonus >= 0 ? '+' : ''}${(bonus*100).toFixed(1)}%`);
+          scores[h.horseName].reasons.barrier = bonus;
         }
       }
     }
-    // News boost (placeholder for now)
-    if (newsBoost) {
-      // Could be implemented async but would slow down; not enabled by default
+    // 3) Weight penalty: above‑average weight costs a little
+    const weights = candidates.map(h => h.weight).filter(w => w != null);
+    if (weights.length > 0) {
+      const avgWeight = weights.reduce((a, b) => a + b, 0) / weights.length;
+      for (const h of candidates) {
+        if (h.weight && h.weight > avgWeight + 2) {
+          const penalty = (h.weight - avgWeight) * 0.005; // 0.5% per lb above avg+2
+          scores[h.horseName].score -= penalty;
+          scores[h.horseName].reasons.weight = -(penalty);
+        }
+      }
     }
+    // 4) Light weight bonus: reward horses under 120lb
+    for (const h of candidates) {
+      if (h.weight && h.weight < 120) {
+        scores[h.horseName].score += lightWeightBonus;
+        scores[h.horseName].reasons.lightWeight = true;
+      }
+    }
+    // 5) Class drop bonus: if we had class history, could add here (stub)
   }
 
   // Normalize final scores to sum to 1
@@ -175,8 +193,21 @@ function computeRecommendations(horses, options = {}) {
     if (h.gear && h.gear.length > 0) {
       reason += `; ${PHRASES.gear}: ${h.gear.join('/')}`;
     }
-    if (r.reasons && r.reasons.length > 0) {
-      reason += '; ' + r.reasons.join('; ');
+    if (r.reasons) {
+      if (r.reasons.tj) {
+        reason += `; TJ bonus +${(tjBonusWeight*100).toFixed(1)}%`;
+      }
+      if (r.reasons.barrier) {
+        const b = r.reasons.barrier;
+        reason += `; Barrier ${b >= 0 ? '+' : ''}${(b*100).toFixed(1)}%`;
+      }
+      if (r.reasons.weight) {
+        const w = r.reasons.weight;
+        reason += `; Weight${w >= 0 ? '+' : ''}${(w*100).toFixed(1)}%`;
+      }
+      if (r.reasons.lightWeight) {
+        reason += `; Light weight bonus +${(lightWeightBonus*100).toFixed(1)}%`;
+      }
     }
     return {
       horseName: h.horseName,
@@ -187,10 +218,10 @@ function computeRecommendations(horses, options = {}) {
 }
 
 async function fetchRaceCard(params = {}) {
-  const { date, classFilter = [], excludeHorseNos = [], excludeBarriers = [], raceNo, advancedScoring = false, tjBonusWeight = 0.1, barrierBonusWeight = 0.05, newsBoost = false } = params;
+  const { date, classFilter = [], excludeHorseNos = [], excludeBarriers = [], raceNo, advancedScoring = false, tjBonusWeight = 0.15, barrierBonusWeight = 0.12, newsBoost = false, lightWeightBonus = 0.05 } = params;
   const targetDate = date || getTodayHKT();
 
-  const cacheKey = makeCacheKey({ date: targetDate, classFilter, excludeHorseNos, excludeBarriers, advancedScoring, newsBoost });
+  const cacheKey = makeCacheKey({ date: targetDate, classFilter, excludeHorseNos, excludeBarriers, raceNo, advancedScoring, newsBoost, lightWeightBonus });
   const cached = cache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp < 15 * 60 * 1000)) {
     return cached.data;
@@ -224,8 +255,9 @@ async function fetchRaceCard(params = {}) {
       return result;
     }
 
-    const meeting = filteredMeetings[0];
-    const venueCode = meeting.venueCode || (meeting.races?.[0]?.raceCourse) || 'Unknown';
+    // Use the first meeting for overall meeting info (venue, date)
+    const firstMeeting = filteredMeetings[0];
+    const venueCode = firstMeeting.venueCode || (firstMeeting.races?.[0]?.raceCourse) || 'Unknown';
     result.meeting = {
       venue: venueCode,
       date: targetDate,
@@ -233,8 +265,13 @@ async function fetchRaceCard(params = {}) {
       trackCondition: null
     };
 
-    const races = meeting.races || [];
-    for (const race of races) {
+    // Collect all races from all meetings on this date
+    const allRaces = [];
+    for (const m of filteredMeetings) {
+      allRaces.push(...(m.races || []));
+    }
+
+    for (const race of allRaces) {
       // Apply class filter if any
       if (classFilter.length > 0) {
         const raceClass = (race.raceClass_en || '').toLowerCase();
@@ -335,7 +372,8 @@ async function fetchRaceCard(params = {}) {
         tjBonusWeight,
         barrierBonusWeight,
         raceDistance: race.distance || null,
-        newsBoost
+        newsBoost,
+        lightWeightBonus
       });
 
       // Class and going (English only)
