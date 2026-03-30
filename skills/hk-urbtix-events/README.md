@@ -2,7 +2,10 @@
 
 Fetches upcoming event data from URBTIX (Hong Kong) and detects changes, filtering out noise.
 
-4. Ensure the agent's workspace directory is writable; the skill creates a `urbtix_cache` subfolder for caching.
+## Prerequisites
+
+Ensure the agent's workspace directory is writable; the skill creates a `urbtix_cache` subfolder for caching.
+
 ## Data Source
 
 Primary: URBTIX website's JavaScript data blob (embedded JSON)
@@ -10,29 +13,30 @@ Fallback: Direct XML download (if available)
 
 ## Tools
 
-### `get_events_hk`
+### `queryEvents`
 
-Fetches events for Hong Kong with optional filtering.
+Answers natural language questions about URBTIX events by parsing the query, fetching the appropriate batch XML, and returning matching performances. Handles date parsing (HK time), venue/name extraction, and validation.
 
 **Parameters:**
-- `category` (optional): Filter by category (e.g., "music", "theatre")
-- `days_ahead` (optional): Number of days to look ahead (default: 30)
-- `force_refresh` (optional): Bypass cache and fetch fresh data (default: false)
+- `question` (required): Natural language question about events, e.g., "When is Medea showing?", "Where is 美狄亞 on April 8?", "What performances are on 2026-04-10?"
+- `force_refresh` (optional): If true, ignore cached XML and re-download. Default: false.
 
 **Returns:** A dictionary with:
-- `events`: List of event dicts (title, date, venue, code, url, etc.)
-- `newly_added`: List of events that weren't in previous cache
-- `cancelled`: List of codes that were removed
-- `metadata`: Timestamp, source, cache status
-
-### `get_events_au`
-
-Fetches Australia events (same schema).
+- `answer`: Human-readable answer with event details or clarification request
+- `matches`: List of matching events, each containing:
+  - `event_name_en`: English event title
+  - `event_name_tc`: Traditional Chinese event title
+  - `venue`: Venue name (English)
+  - `venue_tc`: Venue name (Traditional Chinese)
+  - `date`: Performance date (YYYY-MM-DD)
+  - `time`: Performance time (HH:MM)
+  - `reference_link`: URL to official booking page
+- `clarification_needed`: If unable to match, what additional info is needed
 
 ## Caching & Performance
 
 - Caches raw XML batches per day to reduce load on URBTIX servers
-- Cache location: `$OPENCLA W_WORKSPACE/urbtix_cache/URBTIX_eventBatch_YYYYMMDD.xml`
+- Cache location: `$OPENCLAW_WORKSPACE/urbtix_cache/URBTIX_eventBatch_YYYYMMDD.xml`
 - Cache TTL: 1 day by default
 - Network fetch timeout: 10s
 
@@ -40,7 +44,7 @@ Fetches Australia events (same schema).
 
 1. Ensure skill directory exists: `$OPENCLAW_WORKSPACE/skills/hk-urbtix-events/`
 2. No dependencies required (uses Python standard library)
-3. Add `"hk-urbtix-events"` to the desired agent's `skills` array (Joey recommended)
+3. Add `"hk-urbtix-events"` to the desired agent's `skills` array (Jax recommended)
 
 ## Development
 
