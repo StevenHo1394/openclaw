@@ -19,6 +19,7 @@ WORKSPACE = os.environ.get("OPENCLAW_WORKSPACE", "/home/node/.openclaw/workspace
 CACHE_DIR = Path(WORKSPACE) / "urbtix_cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
+# Official URBTIX batch XML distribution (cloud host)
 BASE_URL = "https://fs-open-1304240968.cos.ap-hongkong.myqcloud.com/prod/gprd"
 XML_PREFIX = "URBTIX_eventBatch_"
 XML_SUFFIX = ".xml"
@@ -97,6 +98,41 @@ def download_xml(url, filename, max_retries=2):
     Returns True on success, False on failure.
     """
     # Extract date from filename
+    date_str = filename.replace(XML_PREFIX, '').replace(XML_SUFFIX, '')
+    try:
+        file_date = datetime.datetime.strptime(date_str, "%Y%m%d").date()
+    except ValueError:
+        return False  # Invalid filename format
+
+    # Don't download dates in the past (unless forced via cache bypass logic elsewhere)
+    if file_date < get_hk_now().date():
+        return False
+
+    # Rate limit: only one download attempt per HK day
+    if has_downloaded_today(date_str):
+        return False
+
+    # Create lock before network call to prevent concurrent downloads
+    record_download_attempt(date_str)
+
+    for attempt in range(max_retries + 1):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'OpenClaw-urbtix-skill/1.0.2'})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status != 200:
+                    continue
+                data = resp.read()
+                # Validate that this is URBTIX XML
+                if b'<BATCH>' not in data or b'URBTIX' not in data:
+                    # Invalid or unexpected content
+                    return False
+                cache_path = get_cache_path(filename)
+                cache_path.write_bytes(data)
+                return True
+        except Exception as e:
+            if attempt == max_retries:
+                return False
+    return False
     try:
         date_str = filename.split('_')[-1].split('.')[0]
         file_date = datetime.datetime.strptime(date_str, "%Y%m%d").date()
@@ -137,6 +173,14 @@ def download_xml(url, filename, max_retries=2):
             try:
                 tree = ET.parse(temp_path)
                 root = tree.getroot()
+
+                # Verify source authenticity: must contain <SYSTEM>URBTIX</SYSTEM>
+                system_el = root.find('SYSTEM')
+                if system_el is None or system_el.text.strip().upper() != 'URBTIX':
+                    print(f"Validation failed: XML does not appear to be from URBTIX (SYSTEM tag missing or not 'URBTIX')", file=sys.stderr)
+                    temp_path.unlink()
+                    return False
+
                 send_date_el = root.find('SEND_DATE')
                 if send_date_el is not None:
                     send_date = send_date_el.text.strip()
@@ -343,8 +387,6 @@ def search_events(tree, name_keywords=None, venue_keywords=None, date_filter=Non
                 perf_dt = perf.find('PERFORMANCE_DATETIME')
                 title_eg = perf.find('TITLE_EG')
                 title_tc = perf.find('TITLE_TC')
-                remark_eg = perf.find('REMARK_EG')
-                remark_tc = perf.find('REMARK_TC')
                 link = perf.find('REFERENCE_LINK')
 
                 if perf_dt is not None:
@@ -359,6 +401,17 @@ def search_events(tree, name_keywords=None, venue_keywords=None, date_filter=Non
                 else:
                     perf_date = ""
                     perf_time = ""
+
+                # If a date filter is set, only include performances on that exact date
+                if date_filter:
+                    filter_str = format_date_for_xml(date_filter)  # YYYYMMDD
+                    # Normalize perf_date from YYYY-MM-DD to YYYYMMDD for comparison
+                    try:
+                        perf_normalized = perf_date.replace('-', '')
+                    except:
+                        perf_normalized = perf_date
+                    if perf_normalized != filter_str:
+                        continue  # skip performances not on the target date
 
                 match = {
                     "event_name_en": title_eg.text if title_eg is not None else event_name_en,
@@ -390,18 +443,28 @@ def format_answer(matches, total_found, clarification=None):
         if key not in unique:
             unique[key] = m
 
-    lines = [f"找到 {len(unique)} 場符合條件的演出：\n"]
-    for m in unique.values():
-        date_str = m['date'] if m['date'] else "日期待定"
-        time_str = m['time'] if m['time'] else "時間待定"
-        venue = m['venue_tc'] or m['venue'] or "場地待定"
-        name = m['event_name_tc'] or m['event_name_en'] or "節目名稱未提供"
-        line = f"• {name}\n  日期：{date_str} {time_str}\n  場地：{venue}"
-        if m['reference_link']:
-            line += f"\n  連結：{m['reference_link']}"
-        lines.append(line)
+    # Build markdown table
+    events = list(unique.values())
+    events.sort(key=lambda x: x['time'])
 
-    return {"answer": "\n".join(lines), "matches": list(unique.values()), "clarification_needed": None}
+    header = "| 時間 | 節目 | 場地 | 購票連結 |\n|------|------|------|----------|"
+    rows = []
+    for e in events:
+        name = e['event_name_tc'] or e['event_name_en'] or "未提供"
+        venue = e['venue_tc'] or e['venue'] or "未提供"
+        time = e['time'] or "待定"
+        link = e['reference_link']
+        if link:
+            link_cell = f"[購票]({link})"
+        else:
+            link_cell = "N/A"
+        # Escape pipes in name/venue
+        name = name.replace('|', '\\|')
+        venue = venue.replace('|', '\\|')
+        rows.append(f"| {time} | {name} | {venue} | {link_cell} |")
+
+    answer = f"找到 {len(events)} 場演出：\n\n{header}\n" + "\n".join(rows)
+    return {"answer": answer, "matches": events, "clarification_needed": None}
 
 def query_events(question, force_refresh=False):
     """Main entry point."""
@@ -459,7 +522,7 @@ def parse_question(question):
             for alias in aliases:
                 q_low = q_low.replace(alias, '')
 
-    q_clean = re.sub(r'\b(when|where|what|is|are|the|for|on|in|at|show|performance|ticket|book|find|tell me|about)\b', '', q_low)
+    q_clean = re.sub(r'\b(when|where|what|is|are|the|for|on|in|at|show|performance|ticket|book|find|tell me|about|event|events)\b', '', q_low)
     q_clean = re.sub(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}', '', q_clean)
     q_clean = re.sub(r'\s+', ' ', q_clean).strip()
 

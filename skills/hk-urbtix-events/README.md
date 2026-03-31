@@ -8,8 +8,10 @@ Ensure the agent's workspace directory is writable; the skill creates a `urbtix_
 
 ## Data Source
 
-Primary: URBTIX website's JavaScript data blob (embedded JSON)
-Fallback: Direct XML download (if available)
+Official URBTIX batch XML distribution via Tencent COS CDN:
+`https://fs-open-1304240968.cos.ap-hongkong.myqcloud.com/prod/gprd/URBTIX_eventBatch_YYYYMMDD.xml`
+
+The XML includes a `<SYSTEM>URBTIX</SYSTEM>` marker that is verified upon download.
 
 ## Tools
 
@@ -22,7 +24,7 @@ Answers natural language questions about URBTIX events by parsing the query, fet
 - `force_refresh` (optional): If true, ignore cached XML and re-download. Default: false.
 
 **Returns:** A dictionary with:
-- `answer`: Human-readable answer with event details or clarification request
+- `answer`: Human-readable answer in **markdown table format** with columns: 時間 | 節目 | 場地 | 購票連結. Includes ticket links where available.
 - `matches`: List of matching events, each containing:
   - `event_name_en`: English event title
   - `event_name_tc`: Traditional Chinese event title
@@ -46,18 +48,19 @@ Answers natural language questions about URBTIX events by parsing the query, fet
 2. No dependencies required (uses Python standard library)
 3. Add `"hk-urbtix-events"` to the desired agent's `skills` array (Jax recommended)
 
-## Development
+## Version
 
-Run tests:
-```bash
-python3 test_skill.py   # unit tests
-python3 full_test.py    # integration test (fetches live data)
-```
+1.0.3 — Improved date filtering (performance-level), markdown table output format with ticket links, expanded stop words (events/event), bug fixes.
 
-These scripts will also test cache creation and network resilience.
+## Security & Authenticity
+
+- The skill downloads batch XML files from the official URBTIX cloud distribution endpoint.
+- Upon download, it verifies the XML contains `<SYSTEM>URBTIX</SYSTEM>` to ensure the data is authentic.
+- Files are cached in `$OPENCLAW_WORKSPACE/urbtix_cache/` to minimize network calls.
+- No credentials are used; only environment variable `OPENCLAW_WORKSPACE` (standard).
 
 ## Notes
 
 - Respectful polling: Do not call more than once per hour without `force_refresh`.
-- URBTIX does not provide official API; this skill scrapes public pages. Use responsibly.
+- This skill uses the official URBTIX batch distribution endpoint; data is authoritative but may be delayed.
 - Event data is subject to change; always verify with official source before purchasing tickets.

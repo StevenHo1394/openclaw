@@ -13,7 +13,7 @@ Answers natural language questions about URBTIX events by parsing the query, fet
 - `force_refresh` (optional): If true, ignore cached XML and re-download. Default: false.
 
 **Returns:** A dictionary with:
-- `answer`: Human-readable answer with event details or clarification request
+- `answer`: Human-readable answer in **markdown table format** (Time | Event | Venue | Ticket Link) or clarification message
 - `matches`: List of matching events (each with event_name_en, event_name_tc, venue, venue_tc, date, time, reference_link)
 - `clarification_needed`: If unable to match, what additional info is needed
 
@@ -25,10 +25,11 @@ Place the skill directory under your OpenClaw workspace `skills/` and add `"hk-u
 
 ## Notes
 
-- Uses URBTIX public XML feed; respectful polling recommended (≤1 call/hour without `force_refresh`).
+- Fetches from the official URBTIX cloud distribution endpoint (Tencent COS). The XML includes a `<SYSTEM>URBTIX</SYSTEM>` marker that is verified upon download to ensure authenticity.
+- Respectful polling: Do not call more than once per hour without `force_refresh`.
 - Caches daily batches in `$OPENCLAW_WORKSPACE/urbtix_cache/` to reduce load.
 - No external dependencies (Python standard library only).
 
 ## Version
 
-1.0.1
+1.0.3 — Improved date filtering (performance-level), markdown table output format with ticket links, expanded stop words (events/event), bug fixes.
