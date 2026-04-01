@@ -2,7 +2,7 @@
 id: hk-supermarket-shopping
 name: HK Supermarket Shopping
 description: Real-time price comparison for Hong Kong supermarkets using the Consumer Council's daily pricewatch. For any product query, returns the cheapest supermarket, price, and how many you could buy with $100. The skill auto-detects query language (English or Chinese) and responds in the same language. No authentication required; data downloads automatically on first use.
-version: 1.2.1
+version: 1.2.2
 author: Steven Ho
 license: MIT
 tags:
@@ -54,7 +54,7 @@ enabled: true
 
 ---
 
-# HK Supermarket Shopping (v1.2.1)
+# HK Supermarket Shopping (v1.2.2)
 
 Real-time price lookup for Hong Kong supermarkets using the Consumer Council's daily pricewatch. The `price_lookup` tool searches for products and returns the cheapest option, price, and how many you can buy with $100. Language (English/Chinese) is auto-detected from your query.
 

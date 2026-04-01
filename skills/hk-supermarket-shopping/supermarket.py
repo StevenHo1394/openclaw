@@ -32,50 +32,91 @@ def log(msg):
     print(f"[{datetime.datetime.now().isoformat()}] {msg}", file=sys.stderr)
 
 def download_pricewatch():
-    for attempt in range(1, 3):
+    """Download pricewatch CSV with up to 3 retries (4 attempts total)."""
+    for attempt in range(4):  # 0,1,2,3 = 4 attempts
         try:
-            log("Downloading pricewatch...")
+            log(f"Downloading pricewatch (attempt {attempt+1}/4)...")
             req = urllib.request.Request(
                 DATA_URL,
                 headers={'User-Agent': 'Mozilla/5.0', 'Accept': 'text/csv'}
             )
             with urllib.request.urlopen(req, timeout=30) as resp:
                 content = resp.read().decode('utf-8')
-            if not content.strip():
+            if content and content.strip():
+                return content
+            else:
                 raise Exception("empty response")
-            return content
         except Exception as e:
-            if attempt < 2:
+            log(f"Download failed: {e}")
+            if attempt < 3:
                 time.sleep(2)
-            return None
+            else:
+                log("All download attempts failed")
+                return None
 
 def ensure_data():
-    today_file = DATA_DIR / f"pricewatch_en_{TODAY.strftime('%Y-%m-%d')}.csv"
+    """
+    Ensure today's data file is available.
+    Logic:
+    1. If today's file exists and looks valid (>1000 bytes), use it.
+    2. Else, download today's file (with retries).
+    3. After successful download, remove all old dated files.
+    4. If download fails, fall back to most recent available file.
+    """
+    today_str = TODAY.strftime('%Y-%m-%d')
+    today_file = DATA_DIR / f"pricewatch_en_{today_str}.csv"
+
+    # Step 1: Check for existing valid today's file
     if today_file.exists() and today_file.stat().st_size > 1000:
+        log(f"Using existing today's data: {today_file}")
         return str(today_file)
+
+    # Step 2: Download today's file
     content = download_pricewatch()
     if content:
+        # Step 3: Remove old files before saving new
+        for old_file in DATA_DIR.glob("pricewatch_en_*.csv"):
+            try:
+                old_file.unlink()
+                log(f"Removed old file: {old_file}")
+            except Exception as e:
+                log(f"Failed to remove {old_file}: {e}")
+        # Save new file
         with open(today_file, 'w', encoding='utf-8') as f:
             f.write(content)
+        log(f"Saved today's data to {today_file}")
         return str(today_file)
+
+    # Step 4: Fallback to any available file
+    log("Falling back to any available data file")
     cands = sorted(DATA_DIR.glob("pricewatch_en_*.csv"),
                    key=lambda p: p.stat().st_mtime,
                    reverse=True)
-    return str(cands[0]) if cands else None
+    if cands:
+        log(f"Using fallback: {cands[0]}")
+        return str(cands[0])
+    return None
 
-def housekeep():
+def housekeep(exclude_path=None):
+    """
+    Housekeeping: remove files older than 1 day, but keep the currently used file.
+    exclude_path: path to the data file currently in use (do not delete).
+    """
     try:
         cutoff = TODAY - datetime.timedelta(days=1)
         for fp in DATA_DIR.glob("pricewatch_en_*.csv"):
+            if exclude_path and str(fp) == exclude_path:
+                continue
             try:
                 dt = datetime.datetime.strptime(
                     fp.stem.replace('pricewatch_en_', ''), "%Y-%m-%d"
                 ).date()
                 if dt < cutoff:
                     fp.unlink()
-            except:
+                    log(f"Housekeep removed old file: {fp}")
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
 
 def load_csv(path):
@@ -85,7 +126,7 @@ def load_csv(path):
             for row in csv.DictReader(f):
                 data.append(row)
         return data
-    except:
+    except Exception:
         return []
 
 def search_items(data, q):
@@ -98,7 +139,7 @@ def search_items(data, q):
         if q in name or q in brand or q in cat1:
             try:
                 price = float(it.get('Price', '').replace('$', '').strip())
-            except:
+            except Exception:
                 price = None
             res.append({
                 'name': it.get('Product Name', '').strip(),
@@ -130,7 +171,7 @@ def answer(query):
     p = ensure_data()
     if not p:
         return "Unable to retrieve data."
-    housekeep()
+    housekeep(exclude_path=p)
     data = load_csv(p)
     if not data:
         return "Data load failed."
@@ -147,7 +188,7 @@ def main():
             "query": sys.argv[1],
             "answer": answer(sys.argv[1])
         }, ensure_ascii=False))
-    except:
+    except Exception:
         print(json.dumps({"error": "Internal error"}))
         sys.exit(1)
 
