@@ -374,15 +374,86 @@ async function checkLiveStatus() {
   return { error: 'check_live_status is deprecated. Use check_upcoming_broadcasts instead.' };
 }
 
+// Tool: check_full_status
+async function checkFullStatus(params) {
+  const channel_ids = params.channel_ids || [];
+  // Resolve all identifiers to channel IDs first
+  const youtube = getYouTubeClient();
+  const resolved = await Promise.all(
+    channel_ids.map(async (id) => {
+      const result = await resolveChannelId(id, youtube);
+      return result.channelId || null;
+    })
+  );
+  const validIds = resolved.filter((id) => id);
+
+  // Run both checks in parallel
+  const [live, upcoming] = await Promise.all([
+    getLiveBroadcast({ channel_ids: validIds }),
+    checkUpcomingBroadcasts({ channel_ids: validIds })
+  ]);
+
+  return {
+    channels: validIds,
+    live: live,
+    upcoming: upcoming
+  };
+}
+
+// Helper: get current HKT time string
+function hktNow() {
+  const now = new Date();
+  // HKT is UTC+8
+  const hktOffset = 8 * 60; // minutes
+  const localOffset = now.getTimezoneOffset(); // minutes (negative if ahead of UTC)
+  const hktTime = new Date(now.getTime() + (hktOffset + localOffset) * 60 * 1000);
+  return hktTime.toISOString().replace('T', ' ').substring(0, 19) + ' HKT';
+}
+
+// Wrap a tool function to prepend HKT time
+function withTimePrefix(toolFn) {
+  return async function(params) {
+    const prefix = `[Local time: ${hktNow()}]`;
+    try {
+      const result = await toolFn.call(this, params);
+      // If result is an object or array, we can't just prepend string; attach a meta field
+      if (typeof result === 'string') {
+        return `${prefix}\n${result}`;
+      } else {
+        // Attach a _meta field with the timestamp
+        if (result && typeof result === 'object') {
+          result._meta = result._meta || {};
+          result._meta.local_time = hktNow();
+        }
+        // Also log to console for visibility
+        console.log(prefix);
+        return result;
+      }
+    } catch (err) {
+      console.log(prefix);
+      throw err;
+    }
+  };
+}
+
 // Export
 module.exports = {
   tools: {
-    add_channel: addChannel,
-    remove_channel: removeChannel,
-    list_channels: listChannels,
-    get_next_broadcast: getNextBroadcast,
-    check_upcoming_broadcasts: checkUpcomingBroadcasts,
-    get_live_broadcast: getLiveBroadcast,
-    check_live_status: checkLiveStatus
+    add_channel: withTimePrefix(addChannel),
+    remove_channel: withTimePrefix(removeChannel),
+    list_channels: withTimePrefix(listChannels),
+    get_next_broadcast: withTimePrefix(getNextBroadcast),
+    check_upcoming_broadcasts: withTimePrefix(checkUpcomingBroadcasts),
+    get_live_broadcast: withTimePrefix(getLiveBroadcast),
+    // expose resolver for external use
+    resolve_channel_id: withTimePrefix(async (params) => {
+      const { channel_id } = params || {};
+      if (!channel_id) return { error: 'channel_id required' };
+      const youtube = getYouTubeClient();
+      const res = await resolveChannelId(channel_id, youtube);
+      return res;
+    }),
+    check_full_status: withTimePrefix(checkFullStatus),
+    check_live_status: withTimePrefix(checkLiveStatus)
   }
 };

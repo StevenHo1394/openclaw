@@ -1,9 +1,30 @@
-// In-memory watchlist store (no file I/O)
-// Note: watchlist resets when the agent session restarts
+// Persistent watchlist store using JSON file
+const fs = require('fs');
+const path = require('path');
 
-let WATCHLIST = {
-  channels: []
-};
+const STORAGE_FILE = path.join(__dirname, 'watchlist.json');
+
+function load() {
+  try {
+    if (fs.existsSync(STORAGE_FILE)) {
+      const data = fs.readFileSync(STORAGE_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('Failed to load watchlist:', err.message);
+  }
+  return { channels: [] };
+}
+
+function save(watchlist) {
+  try {
+    fs.writeFileSync(STORAGE_FILE, JSON.stringify(watchlist, null, 2));
+  } catch (err) {
+    console.error('Failed to save watchlist:', err.message);
+  }
+}
+
+let WATCHLIST = load();
 
 function getWatchlist() {
   return WATCHLIST.channels;
@@ -14,20 +35,27 @@ function findChannel(channelId) {
 }
 
 function addChannel(channel) {
-  WATCHLIST.channels.push(channel);
+  if (!findChannel(channel.id)) {
+    WATCHLIST.channels.push(channel);
+    save(WATCHLIST);
+    return true;
+  }
+  return false;
 }
 
 function removeChannelById(channelId) {
   const index = WATCHLIST.channels.findIndex(c => c.id === channelId);
   if (index !== -1) {
     WATCHLIST.channels.splice(index, 1);
+    save(WATCHLIST);
     return true;
   }
   return false;
 }
 
 function clear() {
-  WATCHLIST.channels = [];
+  WATCHLIST = { channels: [] };
+  save(WATCHLIST);
 }
 
 module.exports = {
