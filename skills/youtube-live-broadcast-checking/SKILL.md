@@ -96,7 +96,7 @@ const next = await skill.tools.get_next_broadcast({ channel_id: 'UCfYvxA4eSAvoES
 
 ## Storage Behavior
 
-The watchlist is stored **in memory only** and will be lost when the agent session restarts. For persistent storage across restarts, the skill would need to be modified to write to disk or use an external database.
+The watchlist is persisted to disk in `watchlist.json` and survives agent restarts, improving performance and consistency across sessions.
 
 ## Quotas & Limits
 
@@ -111,7 +111,11 @@ The watchlist is stored **in memory only** and will be lost when the agent sessi
 
 ## Version History
 
-### v1.3.6 (latest)
+### v1.3.7 (latest)
+- Updated documentation to clarify persistent watchlist storage (watchlist.json) across restarts.
+- Bumped version to 1.3.7 across all manifest files (package.json, openclaw.plugin.json, clawhub.json, SKILL.md).
+
+### v1.3.6
 - Exposed `resolveChannelId` as public tool `resolve_channel_id` for external use.
 - Updated version to 1.3.6 across all manifest files (package.json, openclaw.plugin.json, clawhub.json, SKILL.md).
 

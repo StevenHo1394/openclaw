@@ -1,4 +1,4 @@
-// Persistent watchlist store using JSON file
+// Persistent watchlist store using JSON file (watchlist persists across restarts)
 const fs = require('fs');
 const path = require('path');
 

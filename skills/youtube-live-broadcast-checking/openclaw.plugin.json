@@ -2,7 +2,7 @@
   "id": "youtube-live-broadcast-checking",
   "name": "YouTube Live Broadcast Checking",
   "description": "Checks next live broadcast times and current live status for YouTube channels using YouTube Data API v3.",
-  "version": "1.3.6",
+  "version": "1.3.7",
   "author": "Steven Ho <stevenho1394@users.noreply.github.com>",
   "repository": {
     "type": "git",
