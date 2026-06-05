@@ -1,6 +1,6 @@
 {
   "name": "hk-weather-info",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Hong Kong weather information — current conditions, forecasts, warnings, and alerts from HKO (Hong Kong Observatory).",
   "author": "Steven Ho",
   "license": "MIT",
