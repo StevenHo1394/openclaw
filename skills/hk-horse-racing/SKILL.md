@@ -1,3 +1,7 @@
+---
+name: hk-horse-racing
+description: Fetches Hong Kong Jockey Club race cards with horse details, odds, and recommended picks per race. Supports date selection, class filtering, exclusions, single-race fetch, advanced scoring, and enhanced form analysis.
+---
 # HK Horse Racing Skill
 
 This skill provides two core functions:
@@ -25,6 +29,7 @@ Fetch race card for a given date (default: today in HKT). Includes race details,
 - `barrierBonusWeight` (number, optional): Weight for barrier effectiveness bonus when `advancedScoring=true`. Range 0-0.2. Default: `0.12`.
 - `newsBoost` (boolean, optional): When `advancedScoring=true`, also include news sentiment boost (stub, not implemented). Default: `false`.
 - `lightWeightBonus` (number, optional): Bonus for horses with weight < 120lb when `advancedScoring=true`. Range 0-0.2. Default: `0.05`.
+- \`formAnalysis\` (boolean, optional): Enable enhanced form analysis — recency-weighted form, trend detection (improving/declining), consistency scoring, last-start win bonus, consistency bonus, improving form bonus, declining form penalty, and debutant handling. Default: false.
 
 **Returns (object):**
 ```json
@@ -73,6 +78,9 @@ Fetch race card for a given date (default: today in HKT). Includes race details,
 }
 ```
 
+**Note:** The returned JSON object structure remains the same as previous versions; enabling `formAnalysis` only affects the internal scoring and the resulting `winProbability` values in the recommendations.
+
+
 **Notes:**
 - Stand-by (SB) horses are excluded from the `horses` list.
 - `recommendations` are derived from win odds and recent form; only horses with both are considered.
@@ -113,6 +121,10 @@ If the skill fails to install or run:
 - Check agent logs for errors.
 
 ## Version History
+
+### v1.2.1
+- Updated documentation with lessons learned from live usage (public-friendly format)
+- Added validated model rules, QP betting refinements, barrier insights
 
 ### v1.2.0
 - Added weight penalty in advanced scoring: horses carrying >2 lb above average weight incur a small score penalty.
