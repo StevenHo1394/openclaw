@@ -29,7 +29,7 @@ Fetch race card for a given date (default: today in HKT). Includes race details,
 - `barrierBonusWeight` (number, optional): Weight for barrier effectiveness bonus when `advancedScoring=true`. Range 0-0.2. Default: `0.12`.
 - `newsBoost` (boolean, optional): When `advancedScoring=true`, also include news sentiment boost (stub, not implemented). Default: `false`.
 - `lightWeightBonus` (number, optional): Bonus for horses with weight < 120lb when `advancedScoring=true`. Range 0-0.2. Default: `0.05`.
-- \`formAnalysis\` (boolean, optional): Enable enhanced form analysis — recency-weighted form, trend detection (improving/declining), consistency scoring, last-start win bonus, consistency bonus, improving form bonus, declining form penalty, and debutant handling. Default: false.
+- `formAnalysis` (boolean, optional): Enable enhanced form analysis — recency-weighted form, trend detection (improving/declining), consistency scoring, last-start win bonus, consistency bonus, improving form bonus, declining form penalty, and debutant handling. Default: true.
 
 **Returns (object):**
 ```json
@@ -107,6 +107,8 @@ To avoid overloading the HKJC source, the skill enforces a **1-minute cooldown**
 ## Notes
 
 - The HKJC API is unofficial and may have rate limits or downtime.
+- Place odds provided by the skill may be estimates rather than actual dividends, especially when the live API doesn't publish plaOdds values. For reliable place betting, verify against actual results when possible, and consider using win odds combined with form analysis as a more reliable alternative when place odds are unavailable.
+- For fetching official race results (including final positions and dividends), see the `scripts/get_hk_race_results.js` script which uses the hkjc-api package directly.
 - Odds are fetched separately per race (WIN and PLA by default). Additional odds types can be added by modifying the skill.
 - If the API does not return past performance data, that field will be empty.
 - The skill caches results for 15 minutes to reduce load.
@@ -121,6 +123,12 @@ If the skill fails to install or run:
 - Check agent logs for errors.
 
 ## Version History
+
+### v1.2.2
+- Enabled formAnalysis by default for improved horse selection accuracy
+- Fixed barrierBonusWeight inconsistency (standardized to 0.12)
+- Reduced A. Basel jockey penalty from -0.03 to -0.018 based on validation
+- Enhanced barrier 1 at 1200m effectiveness (+1.8% boost) based on live usage validation
 
 ### v1.2.1
 - Updated documentation with lessons learned from live usage (public-friendly format)

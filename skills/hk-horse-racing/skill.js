@@ -57,7 +57,7 @@ function barrierEffectiveness(barrier, distance) {
   // Simplified model: inner barriers (1-4) generally better for short, outer better for long; middle varies.
   const effectiveness = {
     short: [0.10, 0.08, 0.05, 0.02, 0, -0.02, -0.04, -0.06, -0.08, -0.10, -0.12, -0.14, -0.16],
-    middle: [0.05, 0.04, 0.02, 0.01, 0, -0.01, -0.02, -0.03, -0.04, -0.05, -0.06, -0.07, -0.08],
+    middle: [0.15, 0.04, 0.02, 0.01, 0, -0.01, -0.02, -0.03, -0.04, -0.05, -0.06, -0.07, -0.08],
     long: [-0.08, -0.06, -0.04, -0.02, 0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16]
   };
   const idx = barrier - 1;
@@ -144,12 +144,12 @@ function computeRecommendations(horses, options = {}) {
   const {
     advancedScoring = false,
     tjBonusWeight = 0.1,
-    barrierBonusWeight = 0.05,
+    barrierBonusWeight = 0.12,
     raceDistance = null,
     newsBoost = false,
     lightWeightBonus = 0.05,
-    formAnalysis = false  // NEW: enable enhanced form analysis
-  } = options;
+    formAnalysis = true  // NEW: enable enhanced form analysis
+ } = options;
 
   // Split candidates: those with form data vs those without (debutants / no past runs)
   const withForm = horses.filter(h => h.winOdds != null && h.pastRuns && h.pastRuns.length > 0);
@@ -273,7 +273,7 @@ function computeRecommendations(horses, options = {}) {
     const BAD_JOCKEYS = new Set(['A. Basel']);
     for (const h of candidates) {
       if (h.jockey && BAD_JOCKEYS.has(h.jockey)) {
-        scores[h.horseName].score -= 0.03;
+        scores[h.horseName].score -= 0.018;
         scores[h.horseName].reasons.badJockey = true;
       }
     }
@@ -489,7 +489,7 @@ function computeRecommendations(horses, options = {}) {
 }
 
 async function fetchRaceCard(params = {}) {
-  const { date, classFilter = [], excludeHorseNos = [], excludeBarriers = [], raceNo, advancedScoring = false, tjBonusWeight = 0.15, barrierBonusWeight = 0.12, newsBoost = false, lightWeightBonus = 0.05, formAnalysis = false } = params;
+  const { date, classFilter = [], excludeHorseNos = [], excludeBarriers = [], raceNo, advancedScoring = false, tjBonusWeight = 0.15, barrierBonusWeight = 0.12, newsBoost = false, lightWeightBonus = 0.05,    formAnalysis = true } = params;
   const targetDate = date || getTodayHKT();
 
   const cacheKey = makeCacheKey({ date: targetDate, classFilter, excludeHorseNos, excludeBarriers, raceNo, advancedScoring, newsBoost, lightWeightBonus });
